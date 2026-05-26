@@ -1,0 +1,24 @@
+# Rust build output
+/target/
+
+# Node (icon generator devDependency only)
+browser-ui/node_modules/
+
+# Local browser data (SQLite history/bookmarks)
+browser_data.db
+browser-ui/browser_data.db
+*.db-journal
+
+# macOS
+.DS_Store
+
+# Editor / AI session (local only)
+.claude/
+.antigravitycli/
+.cursor/
+.idea/
+.vscode/
+
+# Secrets
+.env
+.env.*

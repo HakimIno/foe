@@ -1,0 +1,462 @@
+import { ProIcon, ProIconKind, MinimalIconButton, ChromeNavButton } from "common.slint";
+import { TabInfo } from "sidebar.slint";
+
+export struct TabDragState {
+    from: int,
+    to: int,
+    delta-x: length,
+    active: bool,
+}
+
+export global TabDrag {
+    in-out property <TabDragState> state: { from: -1, to: -1, delta-x: 0px, active: false };
+    // Locks out tab-drag processing once vertical window-drag has been initiated
+    in-out property <bool> window-drag-mode: false;
+}
+
+component TabGhost inherits Rectangle {
+    in property <string> title;
+    in property <string> site-type;
+    in property <bool> active;
+    in property <length> slot-width;
+
+    width: root.slot-width;
+    height: 38px;
+
+    // Full-height tab capsule (Brave-style: flush to top, rounded top corners only for active)
+    background_capsule := Rectangle {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: parent.height;
+        border-radius: 6px;
+        background: root.active ? #2B2D31 : #2B2D31D0;
+        border-width: 0px;
+
+        drop-shadow-color: #00000060;
+        drop-shadow-blur: 8px;
+        drop-shadow-offset-y: 2px;
+    }
+
+    // Square off bottom corners for active ghost so it blends with navbar
+    if root.active : Rectangle {
+        x: 0px;
+        y: parent.height - 6px;
+        width: parent.width;
+        height: 6px;
+        background: #2B2D31;
+    }
+
+
+    HorizontalLayout {
+        padding-left: root.slot-width > 75px ? 10px : 0px;
+        padding-right: root.slot-width > 75px ? 8px : 0px;
+        spacing: root.slot-width > 75px ? 6px : 0px;
+        alignment: center;
+
+        ProIcon {
+            icon:
+                root.site-type == "brave" ? ProIconKind.Shield :
+                root.site-type == "arc" ? ProIconKind.Arc :
+                root.site-type == "google" ? ProIconKind.Google :
+                ProIconKind.Globe;
+            icon-color: #FFFFFF;
+            fill-color: root.site-type == "google" ? #FFFFFF : transparent;
+            icon-width: 12px;
+            icon-height: 12px;
+            stroke-width: 1.3px;
+            y: (parent.height - self.height) / 2;
+        }
+
+        if root.slot-width > 75px : Text {
+            text: root.title;
+            color: #FFFFFF;
+            font-size: 11.5px;
+            font-weight: root.active ? 600 : 500;
+            vertical-alignment: center;
+            overflow: elide;
+            horizontal-stretch: 1;
+        }
+    }
+}
+
+component TabItem inherits Rectangle {
+    in property <int> tab-index;
+    in property <string> title;
+    in property <bool> active;
+    in property <bool> is-pinned;
+    in property <string> site-type;
+    in property <bool> is-drag-source;
+    in property <length> slot-width: 120px;
+
+    callback pressed(int);
+    callback moved(int, length);
+    callback released(int, length);
+    callback select_tab(int);
+    callback closed();
+
+    width: root.slot-width;
+    animate width { duration: 150ms; easing: ease-out; }
+    height: 38px;
+
+    // True when mouse is over the close button zone (right 24px of wide tab, or anywhere on narrow tab while hovered)
+    property <bool> mouse-on-close: touch-area.has-hover && !root.is-pinned && (
+        root.slot-width > 75px
+            ? touch-area.mouse-x >= root.slot-width - 24px
+            : true
+    );
+
+    // Visual container declared FIRST so touch-area (below) sits on top with stable has-hover
+    visual_container := Rectangle {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: parent.height;
+        opacity: root.is-drag-source ? 0.0 : 1.0;
+
+        background_capsule := Rectangle {
+            x: 0px;
+            y: 0px;
+            width: parent.width;
+            height: parent.height;
+            border-radius: 6px;
+            background:
+                root.active ? #2B2D31 :
+                touch-area.has-hover ? #FFFFFF12 : transparent;
+            border-width: 0px;
+        }
+
+        if root.active : Rectangle {
+            x: 0px;
+            y: parent.height - 6px;
+            width: parent.width;
+            height: 6px;
+            background: #2B2D31;
+        }
+
+        HorizontalLayout {
+            padding-left: root.slot-width > 75px ? 10px : 0px;
+            padding-right: root.slot-width > 75px ? 8px : 0px;
+            spacing: root.slot-width > 75px ? 6px : 0px;
+            alignment: center;
+
+            if root.slot-width > 75px || !touch-area.has-hover : ProIcon {
+                icon:
+                    root.site-type == "brave" ? ProIconKind.Shield :
+                    root.site-type == "arc" ? ProIconKind.Arc :
+                    root.site-type == "google" ? ProIconKind.Google :
+                    ProIconKind.Globe;
+                icon-color: root.active ? #FFFFFF : (touch-area.has-hover ? #E5E7EB : #9CA3AF);
+                fill-color: root.site-type == "google" && root.active ? #FFFFFF : (root.site-type == "google" ? #9CA3AF : transparent);
+                icon-width: 12px;
+                icon-height: 12px;
+                stroke-width: 1.3px;
+                y: (parent.height - self.height) / 2;
+            }
+
+            if root.slot-width > 75px : Text {
+                text: root.title;
+                color: root.active ? #FFFFFF : (touch-area.has-hover ? #E5E7EB : #9CA3AF);
+                font-size: 11.5px;
+                font-weight: root.active ? 600 : 500;
+                vertical-alignment: center;
+                overflow: elide;
+                horizontal-stretch: 1;
+            }
+
+            // Close button — visual only, NO nested TouchArea (click handled by touch-area via position check)
+            if !root.is-pinned && (
+                (root.slot-width > 75px && (root.active || touch-area.has-hover)) ||
+                (root.slot-width <= 75px && touch-area.has-hover)
+            ) : Rectangle {
+                width: 16px;
+                height: 16px;
+                border-radius: 8px;
+                background: root.mouse-on-close ? #FFFFFF20 : transparent;
+                y: (parent.height - self.height) / 2;
+
+                ProIcon {
+                    icon: ProIconKind.Cancel;
+                    icon-color: root.active ? #FFFFFF : (root.mouse-on-close ? #FFFFFF : #9CA3AF);
+                    icon-width: 8px;
+                    icon-height: 8px;
+                    stroke-width: 1.3px;
+                    y: (parent.height - self.height) / 2;
+                }
+            }
+        }
+    }
+
+    // touch-area declared LAST = highest z-order → always topmost → has-hover never stolen by close button
+    touch-area := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        mouse-cursor: TabDrag.state.active ? grabbing :
+                      root.is-pinned ? default :
+                      root.mouse-on-close ? pointer : grab;
+
+        pointer-event(event) => {
+            if (event.kind == PointerEventKind.down) {
+                root.pressed(root.tab-index);
+                if (!root.mouse-on-close) {
+                    root.select_tab(root.tab-index);
+                }
+            }
+            if (event.kind == PointerEventKind.up) {
+                if (TabDrag.state.active) {
+                    // Drag reorder complete
+                    root.released(root.tab-index, self.mouse-x - self.pressed-x);
+                } else if (!root.is-pinned && root.mouse-on-close) {
+                    // Close button click
+                    root.closed();
+                    TabDrag.state = { from: -1, to: -1, delta-x: 0px, active: false };
+                } else {
+                    // Clean click — already selected on down; just clean up state
+                    TabDrag.state = { from: -1, to: -1, delta-x: 0px, active: false };
+                }
+            }
+        }
+
+        moved => {
+            if (self.pressed && !root.is-pinned) {
+                let dx = self.mouse-x - self.pressed-x;
+                if (TabDrag.state.active) {
+                    root.moved(root.tab-index, dx);
+                } else if (Math.abs(dx) > 15px) {
+                    root.moved(root.tab-index, dx);
+                }
+            }
+        }
+    }
+}
+
+component AddTabButton inherits Rectangle {
+    callback activated();
+
+    width: 28px;
+    height: 28px;
+    border-radius: 14px;
+    background: touch-area.has-hover ? #FFFFFF15 : transparent;
+
+    ProIcon {
+        icon: ProIconKind.Add;
+        icon-color: touch-area.has-hover ? #FFFFFF : #9CA3AF;
+        icon-width: 10px;
+        icon-height: 10px;
+        stroke-width: 1.5px;
+        y: (parent.height - self.height) / 2;
+    }
+
+    touch-area := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.activated(); }
+    }
+}
+
+export component TabBar inherits Rectangle {
+    in property <[TabInfo]> tabs;
+    in property <bool> has-titlebar-spacing: true;
+
+    callback back_clicked();
+    callback forward_clicked();
+    callback reload_clicked();
+    callback select_tab(int);
+    callback close_tab(int);
+    callback new_tab();
+    callback move_tab(int, int);
+    callback start_drag_window();
+    callback double_click_titlebar();
+
+    height: 38px;
+    background: #1E1F22;
+
+    property <length> available-width: root.width - (root.has-titlebar-spacing ? 72px : 0px) - 36px;
+    property <length> max-tab-width: 140px;
+    property <length> min-tab-width: 44px;
+    property <length> calculated-tab-width: root.tabs.length > 0 ? Math.max(
+        root.min-tab-width,
+        Math.min(root.max-tab-width, root.available-width / root.tabs.length)
+    ) : root.max-tab-width;
+
+    // Pure function to calculate sliding visual offset for reordering
+    pure function tab-visual-offset(idx: int, from: int, to: int, delta-x: length, slot-width: length) -> length {
+        if from < 0 || !TabDrag.state.active {
+            0px
+        } else if idx == from {
+            delta-x
+        } else if to > from {
+            if idx > from && idx <= to {
+                -slot-width
+            } else {
+                0px
+            }
+        } else if to < from {
+            if idx < from && idx >= to {
+                slot-width
+            } else {
+                0px
+            }
+        } else {
+            0px
+        }
+    }
+
+    pure function target-index(from: int, delta-x: length) -> int {
+        if from < 0 {
+            -1
+        } else if root.tabs.length <= 0 {
+            from
+        } else {
+            Math.max(0, Math.min(root.tabs.length - 1, from + Math.round(delta-x / root.calculated-tab-width)))
+        }
+    }
+
+    HorizontalLayout {
+        padding: 0px;
+        spacing: 0px;
+
+        // macOS traffic lights area — drag zone on the left (OS renders buttons on top)
+        if root.has-titlebar-spacing : TouchArea {
+            width: 72px;
+            height: parent.height;
+            pointer-event(event) => {
+                if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
+                    root.start_drag_window();
+                }
+            }
+            double-clicked => { root.double_click_titlebar(); }
+        }
+
+        tab-flickable := Flickable {
+            horizontal-stretch: 1;
+            height: 38px;
+            y: (parent.height - self.height) / 2;
+            // interactive: false → don't hijack pan gestures; let TabItem own its drag.
+            // Tabs auto-shrink to min-width, so no scrolling needed anyway.
+            interactive: false;
+            // Viewport expands to fill visible width so background drag covers all empty space
+            viewport-width: Math.max(root.tabs.length * root.calculated-tab-width + 36px, tab-flickable.width);
+
+            Rectangle {
+                width: Math.max(root.tabs.length * root.calculated-tab-width + 36px, tab-flickable.width);
+                height: 38px;
+
+                // Background drag — lowest z-order, only fires in empty space (tabs sit on top).
+                // Empty space has no tab gesture conflict, so any drag direction = window drag.
+                TouchArea {
+                    width: parent.width;
+                    height: parent.height;
+                    pointer-event(event) => {
+                        if (event.kind == PointerEventKind.down) {
+                            TabDrag.window-drag-mode = false;
+                        }
+                    }
+                    moved => {
+                        if (self.pressed && !TabDrag.window-drag-mode && !TabDrag.state.active) {
+                            let dx = self.mouse-x - self.pressed-x;
+                            let dy = self.mouse-y - self.pressed-y;
+                            if (Math.abs(dx) > 15px || Math.abs(dy) > 15px) {
+                                TabDrag.window-drag-mode = true;
+                                root.start_drag_window();
+                            }
+                        }
+                    }
+                    double-clicked => { root.double_click_titlebar(); }
+                }
+ 
+                for tab[idx] in root.tabs: TabItem {
+                    x: idx * root.calculated-tab-width + root.tab-visual-offset(idx, TabDrag.state.from, TabDrag.state.to, TabDrag.state.delta-x, root.calculated-tab-width);
+                    y: 0px;
+                    
+                    tab-index: idx;
+                    title: tab.title;
+                    active: tab.active;
+                    is-pinned: tab.is_pinned;
+                    site-type: tab.site_type;
+                    is-drag-source: TabDrag.state.active && TabDrag.state.from == idx;
+                    slot-width: root.calculated-tab-width;
+ 
+                    pressed(index) => {
+                        TabDrag.state = {
+                            from: index,
+                            to: index,
+                            delta-x: 0px,
+                            active: false,
+                        };
+                    }
+                    moved(index, delta-x) => {
+                        if (TabDrag.state.from == index) {
+                            let slot-w = root.calculated-tab-width;
+                            let min-x = -index * slot-w;
+                            let max-x = (root.tabs.length - 1 - index) * slot-w;
+                            let clamped-delta = Math.max(min-x, Math.min(max-x, delta-x));
+                            
+                            if (!TabDrag.state.active && Math.abs(delta-x) > 15px) {
+                                TabDrag.state = {
+                                    from: index,
+                                    to: index,
+                                    delta-x: clamped-delta,
+                                    active: true,
+                                };
+                            } else if (TabDrag.state.active) {
+                                TabDrag.state = {
+                                    from: index,
+                                    to: root.target-index(index, clamped-delta),
+                                    delta-x: clamped-delta,
+                                    active: true,
+                                };
+                            }
+                        }
+                    }
+                    released(index, delta-x) => {
+                        if (TabDrag.state.from == index) {
+                            if (!TabDrag.state.active) {
+                                // Already selected on down
+                            } else {
+                                // Drag path — resolve final position
+                                let slot-w = root.calculated-tab-width;
+                                let min-x = -index * slot-w;
+                                let max-x = (root.tabs.length - 1 - index) * slot-w;
+                                let clamped = Math.max(min-x, Math.min(max-x, delta-x));
+                                let to-idx = root.target-index(index, clamped);
+                                if (TabDrag.state.from != to-idx) {
+                                    root.move_tab(TabDrag.state.from, to-idx);
+                                } else {
+                                    root.select_tab(index);
+                                }
+                            }
+                            TabDrag.state = { from: -1, to: -1, delta-x: 0px, active: false };
+                        }
+                    }
+                    select_tab(index) => { root.select_tab(index); }
+                    closed => { root.close_tab(idx); }
+
+                    // Smooth sliding when static positions change, disabled on release to prevent layout fights
+                    animate x {
+                        duration: (TabDrag.state.active && TabDrag.state.from != idx) ? 150ms : 0ms;
+                        easing: ease-out;
+                    }
+                }
+
+                // Render the floating ghost tab on top of everything inside the Flickable viewport
+                if TabDrag.state.active && TabDrag.state.from >= 0 && TabDrag.state.from < root.tabs.length : TabGhost {
+                    x: TabDrag.state.from * root.calculated-tab-width + TabDrag.state.delta-x;
+                    y: 0px;
+                    title: root.tabs[TabDrag.state.from].title;
+                    site-type: root.tabs[TabDrag.state.from].site_type;
+                    active: root.tabs[TabDrag.state.from].active;
+                    slot-width: root.calculated-tab-width;
+                }
+
+                AddTabButton {
+                    x: root.tabs.length * root.calculated-tab-width + 4px;
+                    y: 5px;
+                    activated => { root.new_tab(); }
+
+                    animate x { duration: 150ms; easing: ease-out; }
+                }
+            }
+        }
+
+    }
+}

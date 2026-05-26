@@ -1,0 +1,175 @@
+import { ProIcon, ProIconKind } from "common.slint";
+
+export component Webview inherits Rectangle {
+    in property <string> current-url;
+    in property <string> current-title;
+    in property <image> frame;
+
+    background: #1E1F22;
+
+    if current-url != "about:newtab" && current-url != "about:blank" && current-url != "" : Image {
+        source: frame;
+        width: 100%;
+        height: 100%;
+        image-fit: fill;
+    }
+
+    if current-url == "about:newtab" || current-url == "about:blank" || current-url == "" : VerticalLayout {
+        alignment: center;
+        spacing: 32px;
+
+        VerticalLayout {
+            spacing: 6px;
+            Text {
+                text: "foe";
+                color: #FFFFFF;
+                font-size: 32px;
+                font-weight: 700;
+                horizontal-alignment: center;
+            }
+            Text {
+                text: "Brave Concept Shell • Servo Rendering Engine";
+                color: #9CA3AF;
+                font-size: 13px;
+                font-weight: 500;
+                horizontal-alignment: center;
+            }
+        }
+
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 480px;
+                height: 48px;
+                background: #2B2D31;
+                border-radius: 24px;
+                border-width: 1px;
+                border-color: #3F3F46;
+
+                HorizontalLayout {
+                    padding-left: 16px;
+                    padding-right: 16px;
+                    spacing: 12px;
+
+                    ProIcon {
+                        icon: ProIconKind.Google;
+                        icon-color: #FFFFFF;
+                        fill-color: #FFFFFF;
+                        icon-width: 14px;
+                        icon-height: 14px;
+                        stroke-width: 0.5px;
+                        y: (parent.height - self.height) / 2;
+                    }
+
+                    Text {
+                        text: "Search Google or type a URL";
+                        color: #9CA3AF;
+                        font-size: 13.5px;
+                        font-weight: 500;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            alignment: center;
+            spacing: 16px;
+
+            Rectangle {
+                min-width: 140px;
+                max-width: 200px;
+                height: 120px;
+                background: #2B2D3160;
+                border-radius: 12px;
+                border-width: 1px;
+                border-color: #3F3F4650;
+                horizontal-stretch: 1;
+                
+                VerticalLayout {
+                    padding: 14px;
+                    spacing: 8px;
+                    
+                    HorizontalLayout {
+                        spacing: 8px;
+                        ProIcon {
+                            icon: ProIconKind.Shield;
+                            icon-color: #EF4444;
+                            icon-width: 13px;
+                            icon-height: 13px;
+                            stroke-width: 1.3px;
+                        }
+                        Text { text: "Shields Engine"; color: #FFFFFF; font-weight: 600; font-size: 13px; }
+                    }
+                    Text { text: "Blocks ads & trackers directly inside Rust network pipeline."; color: #9CA3AF; font-size: 11px; wrap: word-wrap; }
+                }
+            }
+
+            Rectangle {
+                min-width: 140px;
+                max-width: 200px;
+                height: 120px;
+                background: #2B2D3160;
+                border-radius: 12px;
+                border-width: 1px;
+                border-color: #3F3F4650;
+                horizontal-stretch: 1;
+
+                VerticalLayout {
+                    padding: 14px;
+                    spacing: 8px;
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        ProIcon {
+                            icon: ProIconKind.Arc;
+                            icon-color: #3B82F6;
+                            icon-width: 13px;
+                            icon-height: 13px;
+                            stroke-width: 1.3px;
+                        }
+                        Text { text: "Flat Layout"; color: #FFFFFF; font-weight: 600; font-size: 13px; }
+                    }
+                    Text { text: "Standard browser headers paired with borderless web viewport."; color: #9CA3AF; font-size: 11px; wrap: word-wrap; }
+                }
+            }
+
+            Rectangle {
+                min-width: 140px;
+                max-width: 200px;
+                height: 120px;
+                background: #2B2D3160;
+                border-radius: 12px;
+                border-width: 1px;
+                border-color: #3F3F4650;
+                horizontal-stretch: 1;
+
+                VerticalLayout {
+                    padding: 14px;
+                    spacing: 8px;
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        ProIcon {
+                            icon: ProIconKind.ArrowDownload;
+                            icon-color: #10B981;
+                            icon-width: 13px;
+                            icon-height: 13px;
+                            stroke-width: 1.3px;
+                        }
+                        Text { text: "Media Downloader"; color: #FFFFFF; font-weight: 600; font-size: 13px; }
+                    }
+                    Text { text: "Sniffs video streams from loaded pages and download in background."; color: #9CA3AF; font-size: 11px; wrap: word-wrap; }
+                }
+            }
+        }
+
+        Text {
+            text: "Press F1 to open command bar overlay";
+            color: #9CA3AF;
+            font-size: 11px;
+            font-weight: 500;
+            horizontal-alignment: center;
+        }
+    }
+}

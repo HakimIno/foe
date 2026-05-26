@@ -1,0 +1,188 @@
+import { TabInfo, DownloadItem } from "sidebar.slint";
+import { TabBar } from "tab_bar.slint";
+import { Navbar } from "navbar.slint";
+import { Webview } from "webview.slint";
+import { CommandBar } from "command_bar.slint";
+
+export component AppWindow inherits Window {
+    title: "foe";
+    preferred-width: 1440px;
+    preferred-height: 900px;
+    min-width: 600px;
+    min-height: 400px;
+    
+    // Solid premium dark background
+    background: #1E1F22;
+
+    // Callbacks to Rust Logic
+    callback navigate_to(string);
+    callback back_clicked();
+    callback forward_clicked();
+    callback reload_clicked();
+    callback toggle_shields();
+    callback select_tab(int);
+    callback new_tab();
+    callback close_tab(int);
+    callback move_tab(int, int);
+    callback trigger_download(string);
+    callback command_bar_submit(string);
+    callback start_drag_window();
+    callback double_click_titlebar();
+
+    // Public UI State Bindings
+    in-out property <string> current-url: "https://servo.org";
+    in-out property <string> current-title: "Servo Project";
+    in-out property <image> frame;
+    in-out property <bool> shields-active: true;
+    in-out property <int> blocked-count: 42;
+    in-out property <[TabInfo]> tabs: [
+        { title: "Servo Engine", url: "https://servo.org", active: true, is_pinned: false, site_type: "servo" },
+        { title: "Brave Privacy", url: "https://brave.com", active: false, is_pinned: false, site_type: "brave" },
+        { title: "Arc Browser", url: "https://arc.net", active: false, is_pinned: false, site_type: "arc" }
+    ];
+    in-out property <[DownloadItem]> downloads: [
+        { name: "video-stream-1080p.mp4", progress: 0.72, status: "Downloading" }
+    ];
+    in-out property <bool> show-command-bar: false;
+    in-out property <string> command-text: "";
+    in-out property <bool> show-downloader-panel: false;
+    in-out property <bool> has-titlebar-spacing: false;
+
+    forward-focus: focus-scope;
+    focus-scope := FocusScope {
+        key-released(event) => {
+            if event.text == "F1" {
+                root.show-command-bar = !root.show-command-bar;
+            }
+            accept
+        }
+    }
+
+    // Main layout: Responsive stacked components
+    VerticalLayout {
+        width: parent.width;
+        height: parent.height;
+        padding-left: 0px;
+        padding-right: 0px;
+        padding-top: 0px;
+        padding-bottom: 0px;
+        spacing: 0px;
+
+        TabBar {
+            tabs: root.tabs;
+            has-titlebar-spacing: root.has-titlebar-spacing;
+            select_tab(idx) => { root.select_tab(idx); }
+            close_tab(idx) => { root.close_tab(idx); }
+            new_tab() => { root.new_tab(); }
+            move_tab(from, to) => { root.move_tab(from, to); }
+            start_drag_window() => { root.start_drag_window(); }
+            double_click_titlebar() => { root.double_click_titlebar(); }
+        }
+
+        Navbar {
+            current-url: root.current-url;
+            shields-active: root.shields-active;
+            has-titlebar-spacing: root.has-titlebar-spacing;
+            navigate_to(url) => { root.navigate_to(url); }
+            toggle_shields() => { root.toggle_shields(); }
+            toggle_downloads() => { root.show-downloader-panel = !root.show-downloader-panel; }
+            back_clicked() => { root.back_clicked(); }
+            forward_clicked() => { root.forward_clicked(); }
+            reload_clicked() => { root.reload_clicked(); }
+        }
+
+        // Row 3: Webview full-width viewport
+        Rectangle {
+            background: #1E1F22;
+            border-radius: 0px;
+            border-width: 0px;
+            clip: true;
+            vertical-stretch: 1;
+
+            Webview {
+                current-url: root.current-url;
+                current-title: root.current-title;
+                frame: root.frame;
+            }
+        }
+    }
+
+    // Floating Downloader Widget (Arc style floating panel)
+    if root.show-downloader-panel : Rectangle {
+        width: 220px;
+        height: 150px;
+        background: #FFFFFFD0;
+        border-radius: 12px;
+        border-width: 1px;
+        border-color: #FFFFFF;
+        x: parent.width - 232px; // float right
+        y: parent.height - 162px; // float bottom
+        
+        VerticalLayout {
+            padding: 12px;
+            spacing: 8px;
+
+            HorizontalLayout {
+                alignment: space-between;
+                Text {
+                    text: "Downloads";
+                    color: #18181B;
+                    font-size: 12px;
+                    font-weight: 600;
+                }
+                Text {
+                    text: "Hide";
+                    color: #71717A;
+                    font-size: 11px;
+                    touch-hide := TouchArea {
+                        clicked => { root.show-downloader-panel = false; }
+                    }
+                }
+            }
+
+            for dl in root.downloads : VerticalLayout {
+                spacing: 4px;
+                Text {
+                    text: dl.name;
+                    color: #4B5563;
+                    font-size: 11px;
+                    overflow: elide;
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    Rectangle {
+                        background: #E4E4E7;
+                        height: 4px;
+                        border-radius: 2px;
+                        width: 120px;
+                        Rectangle {
+                            background: #18181B;
+                            width: parent.width * dl.progress;
+                            height: 4px;
+                            border-radius: 2px;
+                            x: 0;
+                        }
+                    }
+                    Text {
+                        text: "72%";
+                        color: #18181B;
+                        font-size: 10px;
+                    }
+                }
+            }
+        }
+    }
+
+    // Centered Floating Command Palette Overlay
+    if root.show-command-bar : CommandBar {
+        command-text: root.command-text;
+        submit(val) => {
+            root.command_bar_submit(val);
+            root.show-command-bar = false;
+            root.command-text = "";
+        }
+        dismiss() => {
+            root.show-command-bar = false;
+        }
+    }
+}

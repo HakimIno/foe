@@ -1,0 +1,133 @@
+import { ProIcon, ProIconKind, ChromeNavButton } from "common.slint";
+
+export component Navbar inherits Rectangle {
+    in-out property <string> current-url;
+    in property <bool> has-titlebar-spacing: true;
+    in property <bool> shields-active: true;
+
+    callback navigate_to(string);
+    callback toggle_shields();
+    callback toggle_downloads();
+    callback back_clicked();
+    callback forward_clicked();
+    callback reload_clicked();
+
+    height: 38px;
+    background: #2B2D31;
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 12px;
+
+        // 1. Left Section: Navigation controls (Vertically Centered)
+        VerticalLayout {
+            alignment: center;
+            HorizontalLayout {
+                spacing: 6px;
+
+                ChromeNavButton {
+                    icon: ProIconKind.ArrowLeft;
+                    activated => { root.back_clicked(); }
+                }
+
+                ChromeNavButton {
+                    icon: ProIconKind.ArrowRight;
+                    activated => { root.forward_clicked(); }
+                }
+
+                ChromeNavButton {
+                    icon: ProIconKind.ArrowClockwise;
+                    activated => { root.reload_clicked(); }
+                }
+            }
+        }
+
+        // 2. Middle Section: URL Search Bar (Vertically Centered)
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            Rectangle {
+                height: 28px;
+                background: #1E1F22;
+                border-radius: 6px;
+                border-width: 1px;
+                border-color: text-input.has-focus ? #3B82F6 : #3F3F46;
+                clip: true;
+
+                HorizontalLayout {
+                    padding-left: 10px;
+                    padding-right: 6px;
+                    spacing: 8px;
+
+                    ProIcon {
+                        icon: ProIconKind.Lock;
+                        icon-color: #9CA3AF;
+                        icon-width: 11px;
+                        icon-height: 11px;
+                        stroke-width: 1.2px;
+                        y: (parent.height - self.height) / 2;
+                    }
+
+                    text-input := TextInput {
+                        text: root.current-url;
+                        color: #FFFFFF;
+                        font-size: 12px;
+                        font-weight: 500;
+                        vertical-alignment: center;
+                        horizontal-stretch: 1;
+                        accepted => {
+                            root.navigate_to(self.text);
+                        }
+                    }
+
+                    // Shields button inside URL Area
+                    Rectangle {
+                        width: 22px;
+                        height: 22px;
+                        border-radius: 11px;
+                        background: touch-shields.has-hover ? #FFFFFF15 : (root.shields-active ? #EF444415 : transparent);
+                        y: (parent.height - self.height) / 2;
+                        
+                        ProIcon {
+                            icon: ProIconKind.Shield;
+                            icon-color: root.shields-active ? #EF4444 : #9CA3AF;
+                            icon-width: 11px;
+                            icon-height: 11px;
+                            stroke-width: 1.3px;
+                            y: (parent.height - self.height) / 2;
+                        }
+
+                        touch-shields := TouchArea {
+                            clicked => { root.toggle_shields(); }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Right Section: Downloads button (Vertically Centered)
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 28px;
+                height: 28px;
+                border-radius: 14px;
+                background: touch-dl.has-hover ? #FFFFFF15 : transparent;
+
+                ProIcon {
+                    icon: ProIconKind.ArrowDownload;
+                    icon-color: touch-dl.has-hover ? #FFFFFF : #9CA3AF;
+                    icon-width: 11px;
+                    icon-height: 11px;
+                    stroke-width: 1.5px;
+                    y: (parent.height - self.height) / 2;
+                }
+
+                touch-dl := TouchArea {
+                    clicked => { root.toggle_downloads(); }
+                }
+            }
+        }
+    }
+}

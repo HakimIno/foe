@@ -1,0 +1,48 @@
+import { ProIcon, ProIconKind } from "common.slint";
+
+export component CommandBar inherits Rectangle {
+    in-out property <string> command-text;
+    callback submit(string);
+    callback dismiss();
+
+    background: #000000A0;
+
+    TouchArea {
+        clicked => { root.dismiss(); }
+    }
+
+    Rectangle {
+        width: 480px;
+        height: 52px;
+        background: #141416;
+        border-radius: 6px;
+        border-width: 1px;
+        border-color: #2D2D30;
+        y: 120px;
+        
+        HorizontalLayout {
+            padding-left: 16px;
+            padding-right: 16px;
+            spacing: 12px;
+
+            ProIcon {
+                icon: ProIconKind.Search;
+                icon-color: #71717A;
+                icon-width: 14px;
+                icon-height: 14px;
+                stroke-width: 1.5px;
+                y: (parent.height - self.height) / 2;
+            }
+
+            TextInput {
+                text: root.command-text;
+                color: #FFFFFF;
+                font-size: 14px;
+                vertical-alignment: center;
+                accepted => {
+                    root.submit(self.text);
+                }
+            }
+        }
+    }
+}

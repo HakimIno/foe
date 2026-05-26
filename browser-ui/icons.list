@@ -1,0 +1,16 @@
+# Format: EnumName=source-icon   (or just source-icon when names match)
+arrow-left
+arrow-right
+ArrowClockwise=refresh
+lock
+shield
+ArrowDownload=download
+search
+Add=plus
+Cancel=x
+menu
+Person=user
+Document=file-text
+globe
+google
+Arc=layout
