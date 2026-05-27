@@ -12,30 +12,38 @@ use euclid::Point2D;
 pub struct InputState {
     pub cursor_x: f64,
     pub cursor_y: f64,
-    /// Y offset where webview area starts (below TabBar + Navbar)
-    pub webview_y_offset: f64,
+    /// HiDPI scale factor — updated from winit on every event
+    pub scale_factor: f64,
     /// Active modifiers state
     pub modifiers: keyboard_types::Modifiers,
 }
+
+// Chrome height in logical pixels (TabBar 38px + Navbar 38px)
+const CHROME_HEIGHT_LOGICAL: f64 = 76.0;
 
 impl InputState {
     pub fn new() -> Self {
         InputState {
             cursor_x: 0.0,
             cursor_y: 0.0,
-            webview_y_offset: 76.0, // TabBar (38px) + Navbar (38px)
+            scale_factor: 1.0,
             modifiers: keyboard_types::Modifiers::empty(),
         }
     }
 
-    /// Check if cursor is in the webview area
-    pub fn is_in_webview_area(&self) -> bool {
-        self.cursor_y >= self.webview_y_offset
+    /// Chrome height in physical pixels — what winit cursor positions use
+    fn chrome_height_physical(&self) -> f64 {
+        CHROME_HEIGHT_LOGICAL * self.scale_factor
     }
 
-    /// Get cursor position relative to webview area
+    /// Check if cursor is in the webview area (physical coordinates)
+    pub fn is_in_webview_area(&self) -> bool {
+        self.cursor_y >= self.chrome_height_physical()
+    }
+
+    /// Get cursor position relative to webview origin (physical pixels)
     pub fn webview_relative_position(&self) -> (f64, f64) {
-        (self.cursor_x, self.cursor_y - self.webview_y_offset)
+        (self.cursor_x, self.cursor_y - self.chrome_height_physical())
     }
 }
 

@@ -244,6 +244,16 @@ impl ServoEngine {
         self.tabs.get(self.active_index).map(|t| &t.webview)
     }
 
+    /// Get the active index
+    pub fn active_index(&self) -> usize {
+        self.active_index
+    }
+
+    /// Get the active tab (if any)
+    pub fn get_active_tab(&self) -> Option<&ServoTab> {
+        self.tabs.get(self.active_index)
+    }
+
     /// Pump the Servo event loop — should be called periodically
     pub fn spin_event_loop(&self) {
         if let Some(ref servo) = self.servo {
@@ -306,18 +316,19 @@ impl ServoEngine {
     ) {
         use i_slint_backend_winit::winit::event::WindowEvent;
 
+        // Keep input state scale in sync — cursor positions from winit are physical pixels
+        self.input_state.scale_factor = scale as f64;
+
         match event {
             WindowEvent::Resized(physical_size) => {
                 log::debug!("[ServoEngine] Window resized: {:?} (scale={:.2})", physical_size, scale);
-                // Update scale factor first so viewport calculations are correct
                 self.update_scale_factor(scale);
 
                 let width = physical_size.width;
-                // 90 logical px chrome (TabBar 38 + Navbar 38 ≈ 76 + extra) → physical
-                let chrome_h = (90.0 * scale) as u32;
+                // 76 logical px chrome (TabBar 38px + Navbar 38px) → physical
+                let chrome_h = (76.0 * scale) as u32;
                 let height = physical_size.height.saturating_sub(chrome_h).max(1);
 
-                // Propagate scale to active webview before resize so Servo uses correct viewport
                 if let Some(tab) = self.tabs.get(self.active_index) {
                     tab.webview.set_hidpi_scale_factor(euclid::Scale::new(scale));
                 }
@@ -325,6 +336,7 @@ impl ServoEngine {
             }
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                 self.update_scale_factor(*scale_factor as f32);
+                self.input_state.scale_factor = *scale_factor;
             }
             _ => {
                 if let Some(servo_event) = input::translate_event(event, &mut self.input_state) {

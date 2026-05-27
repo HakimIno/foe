@@ -7,6 +7,138 @@ use dpi::PhysicalSize;
 use image::RgbaImage;
 use gleam::gl::{self, Gl};
 
+#[cfg(target_os = "macos")]
+pub mod macos_iosurface {
+    use std::ffi::c_void;
+    use std::ptr;
+
+    // CoreFoundation types
+    pub type CFTypeRef = *const c_void;
+    pub type CFStringRef = *const c_void;
+    pub type CFNumberRef = *const c_void;
+    pub type CFDictionaryRef = *const c_void;
+    pub type IOSurfaceRef = *const c_void;
+
+    // CFNumber types
+    pub const K_CF_NUMBER_S_INT32_TYPE: i32 = 3;
+
+    // CFString encoding
+    pub const K_CF_STRING_ENCODING_UTF8: u32 = 0x08000100;
+
+    #[link(name = "CoreFoundation", kind = "framework")]
+    extern "C" {
+        pub fn CFStringCreateWithCString(
+            allocator: CFTypeRef,
+            c_str: *const std::ffi::c_char,
+            encoding: u32,
+        ) -> CFStringRef;
+        pub fn CFNumberCreate(
+            allocator: CFTypeRef,
+            the_type: i32,
+            value_ptr: *const c_void,
+        ) -> CFNumberRef;
+        pub fn CFDictionaryCreate(
+            allocator: CFTypeRef,
+            keys: *const CFTypeRef,
+            values: *const CFTypeRef,
+            num_values: isize,
+            key_callbacks: *const c_void,
+            value_callbacks: *const c_void,
+        ) -> CFDictionaryRef;
+        pub fn CFRelease(obj: CFTypeRef);
+    }
+
+    #[link(name = "IOSurface", kind = "framework")]
+    extern "C" {
+        pub fn IOSurfaceCreate(properties: CFDictionaryRef) -> IOSurfaceRef;
+    }
+
+    // CGL TexImageIOSurface2D
+    #[link(name = "OpenGL", kind = "framework")]
+    extern "C" {
+        pub fn CGLTexImageIOSurface2D(
+            ctx: cgl::CGLContextObj,
+            target: u32,
+            internal_format: u32,
+            width: i32,
+            height: i32,
+            format: u32,
+            gl_type: u32,
+            ioSurface: IOSurfaceRef,
+            plane: u32,
+        ) -> cgl::CGLError;
+    }
+
+    pub unsafe fn create_iosurface(width: u32, height: u32) -> Option<IOSurfaceRef> {
+        let key_width = CFStringCreateWithCString(
+            ptr::null(),
+            b"IOSurfaceWidth\0".as_ptr() as *const _,
+            K_CF_STRING_ENCODING_UTF8,
+        );
+        let key_height = CFStringCreateWithCString(
+            ptr::null(),
+            b"IOSurfaceHeight\0".as_ptr() as *const _,
+            K_CF_STRING_ENCODING_UTF8,
+        );
+        let key_bytes_per_elem = CFStringCreateWithCString(
+            ptr::null(),
+            b"IOSurfaceBytesPerElement\0".as_ptr() as *const _,
+            K_CF_STRING_ENCODING_UTF8,
+        );
+        let key_pixel_format = CFStringCreateWithCString(
+            ptr::null(),
+            b"IOSurfacePixelFormat\0".as_ptr() as *const _,
+            K_CF_STRING_ENCODING_UTF8,
+        );
+
+        let w_val = width as i32;
+        let val_width = CFNumberCreate(ptr::null(), K_CF_NUMBER_S_INT32_TYPE, &w_val as *const _ as *const _);
+
+        let h_val = height as i32;
+        let val_height = CFNumberCreate(ptr::null(), K_CF_NUMBER_S_INT32_TYPE, &h_val as *const _ as *const _);
+
+        let bpe_val = 4i32;
+        let val_bytes_per_elem = CFNumberCreate(ptr::null(), K_CF_NUMBER_S_INT32_TYPE, &bpe_val as *const _ as *const _);
+
+        let fmt_val = 1111970369i32; // 'BGRA' FourCC
+        let val_pixel_format = CFNumberCreate(ptr::null(), K_CF_NUMBER_S_INT32_TYPE, &fmt_val as *const _ as *const _);
+
+        let keys = [key_width, key_height, key_bytes_per_elem, key_pixel_format];
+        let values = [val_width, val_height, val_bytes_per_elem, val_pixel_format];
+
+        let dict = CFDictionaryCreate(
+            ptr::null(),
+            keys.as_ptr(),
+            values.as_ptr(),
+            keys.len() as isize,
+            ptr::null(),
+            ptr::null(),
+        );
+
+        if dict.is_null() {
+            log::error!("[IOSurface] Failed to create CFDictionary properties");
+            for &k in &keys { if !k.is_null() { CFRelease(k); } }
+            for &v in &values { if !v.is_null() { CFRelease(v); } }
+            return None;
+        }
+
+        let iosurface = IOSurfaceCreate(dict);
+
+        // Clean up CF objects
+        CFRelease(dict);
+        for &k in &keys { CFRelease(k); }
+        for &v in &values { CFRelease(v); }
+
+        if iosurface.is_null() {
+            log::error!("[IOSurface] IOSurfaceCreate returned null");
+            None
+        } else {
+            log::debug!("[IOSurface] Created IOSurface {}x{}", width, height);
+            Some(iosurface)
+        }
+    }
+}
+
 /// Custom texture-backed FBO that WebRender renders into.
 /// Mirrors the `Framebuffer` struct in servo-paint-api's OffscreenRenderingContext.
 struct CustomFramebuffer {
@@ -14,6 +146,8 @@ struct CustomFramebuffer {
     framebuffer_id: u32,
     texture_id: u32,
     renderbuffer_id: u32,
+    #[cfg(target_os = "macos")]
+    iosurface: macos_iosurface::IOSurfaceRef,
 }
 
 impl CustomFramebuffer {
@@ -22,7 +156,44 @@ impl CustomFramebuffer {
         gl.bind_framebuffer(gl::FRAMEBUFFER, fbo);
 
         let tex = gl.gen_textures(1)[0];
-        gl.bind_texture(gl::TEXTURE_2D, tex);
+
+        #[cfg(target_os = "macos")]
+        let target = 0x84F5; // GL_TEXTURE_RECTANGLE
+        #[cfg(not(target_os = "macos"))]
+        let target = gl::TEXTURE_2D;
+
+        gl.bind_texture(target, tex);
+
+        #[cfg(target_os = "macos")]
+        let iosurface = unsafe {
+            let surface = macos_iosurface::create_iosurface(size.width, size.height)
+                .expect("Failed to create IOSurface");
+
+            let ctx = cgl::CGLGetCurrentContext();
+            if ctx.is_null() {
+                log::error!("[GpuCtx] Current CGL context is null during CustomFramebuffer creation");
+            }
+
+            // CGLTexImageIOSurface2D expects GL_TEXTURE_RECTANGLE, RGBA internal format, BGRA format, and UNSIGNED_INT_8_8_8_8_REV type.
+            let err = macos_iosurface::CGLTexImageIOSurface2D(
+                ctx,
+                0x84F5, // GL_TEXTURE_RECTANGLE
+                gl::RGBA as u32,
+                size.width as i32,
+                size.height as i32,
+                gl::BGRA,
+                0x8367, // GL_UNSIGNED_INT_8_8_8_8_REV
+                surface,
+                0,
+            );
+
+            if err != 0 {
+                log::error!("[GpuCtx] CGLTexImageIOSurface2D failed with error: {}", err);
+            }
+            surface
+        };
+
+        #[cfg(not(target_os = "macos"))]
         gl.tex_image_2d(
             gl::TEXTURE_2D,
             0,
@@ -34,10 +205,11 @@ impl CustomFramebuffer {
             gl::UNSIGNED_BYTE,
             None,
         );
-        gl.tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as gl::GLint);
-        gl.tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as gl::GLint);
-        gl.framebuffer_texture_2d(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, tex, 0);
-        gl.bind_texture(gl::TEXTURE_2D, 0);
+
+        gl.tex_parameter_i(target, gl::TEXTURE_MAG_FILTER, gl::NEAREST as gl::GLint);
+        gl.tex_parameter_i(target, gl::TEXTURE_MIN_FILTER, gl::NEAREST as gl::GLint);
+        gl.framebuffer_texture_2d(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, target, tex, 0);
+        gl.bind_texture(target, 0);
 
         let rbo = gl.gen_renderbuffers(1)[0];
         gl.bind_renderbuffer(gl::RENDERBUFFER, rbo);
@@ -56,7 +228,14 @@ impl CustomFramebuffer {
             log::debug!("[GpuCtx] Created FBO {} ({}x{})", fbo, size.width, size.height);
         }
 
-        Self { gl, framebuffer_id: fbo, texture_id: tex, renderbuffer_id: rbo }
+        Self {
+            gl,
+            framebuffer_id: fbo,
+            texture_id: tex,
+            renderbuffer_id: rbo,
+            #[cfg(target_os = "macos")]
+            iosurface,
+        }
     }
 
     fn bind(&self) {
@@ -115,6 +294,10 @@ impl CustomFramebuffer {
         self.gl.delete_textures(&[self.texture_id]);
         self.gl.delete_renderbuffers(&[self.renderbuffer_id]);
         self.gl.delete_framebuffers(&[self.framebuffer_id]);
+        #[cfg(target_os = "macos")]
+        unsafe {
+            macos_iosurface::CFRelease(self.iosurface);
+        }
     }
 }
 
@@ -178,6 +361,17 @@ impl GpuSharedRenderingContext {
             glow_gl,
             framebuffer: RefCell::new(Some(framebuffer)),
         })
+    }
+
+    pub fn get_iosurface(&self) -> Option<*const std::ffi::c_void> {
+        #[cfg(target_os = "macos")]
+        {
+            self.framebuffer.borrow().as_ref().map(|fb| fb.iosurface)
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            None
+        }
     }
 }
 
