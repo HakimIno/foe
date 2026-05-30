@@ -12,8 +12,8 @@ export component Navbar inherits Rectangle {
     callback forward_clicked();
     callback reload_clicked();
 
-    height: 38px;
-    background: #2B2D31;
+    height: 36px; /* 36px height to maintain 76px logical height (40px + 36px) */
+    background: #1E1F22; /* Unified dark window background */
 
     HorizontalLayout {
         padding-left: 12px;
@@ -24,7 +24,13 @@ export component Navbar inherits Rectangle {
         VerticalLayout {
             alignment: center;
             HorizontalLayout {
-                spacing: 6px;
+                spacing: 4px;
+
+                // Sidebar Toggle panel button (Arc icon represents panels)
+                ChromeNavButton {
+                    icon: ProIconKind.Arc;
+                    activated => { }
+                }
 
                 ChromeNavButton {
                     icon: ProIconKind.ArrowLeft;
@@ -49,28 +55,57 @@ export component Navbar inherits Rectangle {
             horizontal-stretch: 1;
             Rectangle {
                 height: 28px;
-                background: #1E1F22;
-                border-radius: 6px;
-                border-width: 1px;
-                border-color: text-input.has-focus ? #3B82F6 : #3F3F46;
+                background: #2C2D30; /* Lighter container background */
+                border-radius: 8px; /* Smooth Firefox roundness */
+                border-width: 1.5px;
+                border-color: text-input.has-focus ? #00F0FF : #3F3F46; /* Cyan glowing border on focus */
                 clip: true;
 
                 HorizontalLayout {
-                    padding-left: 10px;
+                    padding-left: 8px;
                     padding-right: 6px;
                     spacing: 8px;
+
+                    // Google Favicon + Dropdown Arrow (Firefox style)
+                    HorizontalLayout {
+                        spacing: 2px;
+                        horizontal-stretch: 0; /* Prevent container from stretching */
+                        y: (parent.height - self.height) / 2;
+                        ProIcon {
+                            icon: ProIconKind.Google;
+                            icon-color: #FFFFFF;
+                            fill-color: #FFFFFF;
+                            icon-width: 14px;
+                            icon-height: 14px;
+                            stroke-width: 1.0px;
+                        }
+                        Text {
+                            text: "▾";
+                            color: #9CA3AF;
+                            font-size: 10px;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    // Divider line
+                    Rectangle {
+                        width: 1px;
+                        height: 14px;
+                        background: #3F3F46;
+                        y: (parent.height - self.height) / 2;
+                    }
 
                     ProIcon {
                         icon: ProIconKind.Lock;
                         icon-color: #9CA3AF;
-                        icon-width: 11px;
-                        icon-height: 11px;
-                        stroke-width: 1.2px;
+                        icon-width: 14px;
+                        icon-height: 14px;
+                        stroke-width: 1.6px;
                         y: (parent.height - self.height) / 2;
                     }
 
                     text-input := TextInput {
-                        text: root.current-url;
+                        text: root.current-url == "about:newtab" ? "" : root.current-url;
                         color: #FFFFFF;
                         font-size: 12px;
                         font-weight: 500;
@@ -79,6 +114,13 @@ export component Navbar inherits Rectangle {
                         accepted => {
                             root.navigate_to(self.text);
                         }
+                    }
+
+                    if (text-input.text == "" || root.current-url == "about:newtab") && !text-input.has-focus : Text {
+                        text: "ค้นหาด้วย Google หรือป้อนที่อยู่...";
+                        color: #9CA3AF;
+                        font-size: 11px;
+                        vertical-alignment: center;
                     }
 
                     // Shields button inside URL Area
@@ -92,9 +134,9 @@ export component Navbar inherits Rectangle {
                         ProIcon {
                             icon: ProIconKind.Shield;
                             icon-color: root.shields-active ? #EF4444 : #9CA3AF;
-                            icon-width: 11px;
-                            icon-height: 11px;
-                            stroke-width: 1.3px;
+                            icon-width: 14px;
+                            icon-height: 14px;
+                            stroke-width: 1.6px;
                             y: (parent.height - self.height) / 2;
                         }
 
@@ -106,26 +148,30 @@ export component Navbar inherits Rectangle {
             }
         }
 
-        // 3. Right Section: Downloads button (Vertically Centered)
+        // 3. Right Section: Toolbar controls (Vertically Centered)
         VerticalLayout {
             alignment: center;
-            Rectangle {
-                width: 28px;
-                height: 28px;
-                border-radius: 14px;
-                background: touch-dl.has-hover ? #FFFFFF15 : transparent;
+            HorizontalLayout {
+                spacing: 4px;
 
-                ProIcon {
+                ChromeNavButton {
                     icon: ProIconKind.ArrowDownload;
-                    icon-color: touch-dl.has-hover ? #FFFFFF : #9CA3AF;
-                    icon-width: 11px;
-                    icon-height: 11px;
-                    stroke-width: 1.5px;
-                    y: (parent.height - self.height) / 2;
+                    activated => { root.toggle_downloads(); }
                 }
 
-                touch-dl := TouchArea {
-                    clicked => { root.toggle_downloads(); }
+                ChromeNavButton {
+                    icon: ProIconKind.Document;
+                    activated => { }
+                }
+
+                ChromeNavButton {
+                    icon: ProIconKind.Person;
+                    activated => { }
+                }
+
+                ChromeNavButton {
+                    icon: ProIconKind.Menu;
+                    activated => { }
                 }
             }
         }

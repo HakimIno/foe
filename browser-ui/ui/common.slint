@@ -5,9 +5,9 @@ export { ProIconKind } from "icons/icons.generated.slint";
 export component ProIcon inherits Rectangle {
     in property <ProIconKind> icon;
     in property <color> icon-color: #71717A;
-    in property <length> icon-width: 14px;
-    in property <length> icon-height: 14px;
-    in property <length> stroke-width: 1.5px;
+    in property <length> icon-width: 15px;
+    in property <length> icon-height: 15px;
+    in property <length> stroke-width: 1.6px;
     in property <color> fill-color: transparent;
 
     width: 24px;
@@ -95,9 +95,9 @@ export component ChromeNavButton inherits Rectangle {
     ProIcon {
         icon: root.icon;
         icon-color: touch-area.has-hover ? #FFFFFF : #9CA3AF;
-        icon-width: 11px;
-        icon-height: 11px;
-        stroke-width: 1.4px;
+        icon-width: 15px;  /* Enlarged from 11px for crisp visibility */
+        icon-height: 15px; /* Enlarged from 11px for crisp visibility */
+        stroke-width: 1.6px;
         y: (parent.height - self.height) / 2;
     }
 

@@ -1,24 +1,31 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Search</title>
-    <!-- Use Outfit or Inter font for premium typography -->
+    <title>สืบค้น FOE</title>
+    <!-- Outfit for English/numbers and IBM Plex Sans Thai for elegant loopless Thai typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #1E1F22;
-            --surface-color: #2C2D30;
-            --border-color: #3A3B3E;
-            --text-primary: #FFFFFF;
-            --text-secondary: #8E9093;
-            --accent-color: #58A6FF;
-            --accent-hover: #79B8FF;
-            --card-hover: #35363A;
-            --font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --bg-color: #FFFFFF;
+            --surface-color: #FFFFFF;
+            --border-color: #E0E0E0;
+            --border-hover: #B5B5B5;
+            --text-primary: #202124;
+            --text-secondary: #4D5156;
+            --text-muted: #70757A;
+            --accent-color: #1F4E79; /* Royal Thai Indigo */
+            --accent-gold: #B8860B;
+            --link-color: #1F4E79; /* Custom Indigo for links */
+            --link-hover: #153E60;
+            --card-bg: #F8F9FA;
+            --font-family: 'Outfit', 'IBM Plex Sans Thai', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            --shadow-sm: 0 1px 6px rgba(32,33,36,0.12);
+            --shadow-md: 0 2px 8px rgba(0,0,0,0.06);
         }
 
         * {
@@ -42,178 +49,732 @@
         /* Container layouts depending on state */
         .search-container {
             width: 100%;
-            max-width: 680px;
-            padding: 20px;
             display: flex;
             flex-direction: column;
-            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: var(--transition-smooth);
         }
 
-        /* Initial Start State (Centered) */
+        /* Initial Start State (Centered like DDG Home) */
         .state-initial {
-            margin-top: 25vh;
+            margin-top: 15vh;
+            padding: 20px;
+            max-width: 650px;
             align-items: center;
         }
 
-        .state-initial .logo-text {
-            font-size: 48px;
-            font-weight: 600;
-            letter-spacing: -1px;
-            margin-bottom: 30px;
-            background: linear-gradient(135deg, #FFFFFF 0%, #8E9093 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+        .state-initial .header-row {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
         }
 
-        /* Results State (Top aligned) */
-        .state-results {
-            margin-top: 40px;
+        /* Results State (Fixed top header like DDG Results) */
+        .state-results .header-row {
+            display: flex;
+            flex-direction: column;
             align-items: flex-start;
+            width: 100%;
+            border-bottom: 1px solid #ECEFF1;
+            position: fixed;
+            top: 0;
+            left: 0;
+            background: #FFFFFF;
+            z-index: 100;
+            padding-top: 15px;
         }
 
-        .state-results .logo-text {
-            font-size: 24px;
-            margin-bottom: 20px;
+        .header-main {
+            display: none;
+            width: 100%;
+            flex-direction: row;
+            align-items: center;
+            gap: 24px;
+            padding: 0 40px 12px 40px;
+        }
+
+        .state-results .header-main {
+            display: flex;
+        }
+
+        .state-results .logo-container {
             cursor: pointer;
         }
 
-        /* Search input bar wrapper */
+        .state-results #home-logo {
+            display: none;
+        }
+
+        .state-results #home-search-wrapper {
+            display: none;
+        }
+
+        /* Logo Brand Style */
+        .logo-container {
+            display: flex;
+            align-items: center;
+            user-select: none;
+            transition: var(--transition-smooth);
+        }
+
+        .state-initial .logo-container {
+            margin-bottom: 15px;
+        }
+
+        .logo-img-large {
+            width: 320px;
+            height: 112px;
+            object-fit: contain;
+            display: block;
+        }
+
+        .logo-img-small {
+            width: 120px;
+            height: 42px;
+            object-fit: contain;
+            display: block;
+        }
+
+        /* Search input bar wrapper with clean gradient border-only animation */
         .search-box-wrapper {
             position: relative;
             width: 100%;
             display: flex;
             align-items: center;
-            background-color: var(--surface-color);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 2px 6px;
-            transition: border-color 0.25s, box-shadow 0.25s;
+            border-radius: 20px; /* Sleeker rounded corners */
+            padding: 2px 4px 2px 6px;
+            transition: var(--transition-smooth);
+            box-shadow: var(--shadow-md);
+            
+            /* Clean dual background trick for border-only layout */
+            border: 1.5px solid transparent;
+            background: linear-gradient(#FFFFFF, #FFFFFF) padding-box,
+                        linear-gradient(135deg, var(--border-color), var(--border-color)) border-box;
         }
 
+        .state-initial .search-box-wrapper {
+            max-width: 480px; /* Smaller */
+        }
+
+        .state-results .search-box-wrapper {
+            flex-grow: 1;
+            max-width: 540px; /* Smaller */
+        }
+
+        .search-box-wrapper:hover,
         .search-box-wrapper:focus-within {
-            border-color: var(--accent-color);
-            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+            background: linear-gradient(#FFFFFF, #FFFFFF) padding-box,
+                        linear-gradient(135deg, var(--accent-color), var(--accent-gold), #D15E9F, #8E44AD, #00F0FF, var(--accent-color)) border-box;
+            background-size: 100% 100%, 300% 300%;
+            animation: border-gradient-flow 6s ease infinite;
+            box-shadow: 0 0 12px rgba(31, 78, 121, 0.15);
+        }
+
+        @keyframes border-gradient-flow {
+            0% { background-position: 0% 50%, 0% 50%; }
+            50% { background-position: 0% 50%, 100% 50%; }
+            100% { background-position: 0% 50%, 0% 50%; }
         }
 
         .search-input {
             width: 100%;
-            height: 48px;
+            height: 32px; /* Snug height */
             background: transparent;
             border: none;
             outline: none;
             color: var(--text-primary);
-            font-size: 16px;
-            padding: 0 16px;
+            font-size: 14px; /* Sleeker font size */
+            padding: 0 10px;
             font-family: var(--font-family);
         }
 
         .search-input::placeholder {
-            color: var(--text-secondary);
+            color: #9AA0A6;
         }
 
         .search-icon {
-            color: var(--text-secondary);
-            margin-left: 14px;
+            color: #9AA0A6;
+            margin-left: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
-        /* Search Results Container */
-        .results-container {
-            width: 100%;
-            max-width: 680px;
-            padding: 0 20px 60px 20px;
-            display: none;
-            flex-direction: column;
-            gap: 24px;
-            animation: fadeIn 0.4s ease-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Clean and minimal search result card */
-        .result-card {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            padding: 16px;
-            border-radius: 10px;
-            background-color: rgba(44, 45, 48, 0.3);
-            border: 1px solid rgba(58, 59, 62, 0.3);
-            transition: background-color 0.2s, border-color 0.2s;
-        }
-
-        .result-card:hover {
-            background-color: var(--surface-color);
-            border-color: var(--border-color);
-        }
-
-        /* URL / Source display */
-        .result-meta {
+        /* Search Action Button inside the input box (Minimalist Android 14 generative style) */
+        .search-action-btn {
             display: flex;
             align-items: center;
-            gap: 8px;
+            justify-content: center;
+            gap: 6px;
+            height: 28px; /* Snug height inside 32px input area */
+            padding: 0 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            background-color: #FFFFFF; /* Keep background white */
+            color: var(--accent-color); /* Indigo text */
+            font-family: var(--font-family);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            outline: none;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Shimmer Reflection Passing Through the Button */
+        .search-action-btn::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -60%;
+            width: 30%;
+            height: 200%;
+            background: linear-gradient(
+                to right,
+                rgba(31, 78, 121, 0) 0%,
+                rgba(31, 78, 121, 0.06) 50%,
+                rgba(31, 78, 121, 0) 100%
+            );
+            transform: rotate(30deg);
+            transition: all 0.5s;
+            opacity: 0;
+        }
+
+        .search-box-wrapper:focus-within .search-action-btn::after,
+        .search-box-wrapper:hover .search-action-btn::after {
+            animation: button-shimmer 2.5s infinite;
+            opacity: 1;
+        }
+
+        @keyframes button-shimmer {
+            0% { left: -60%; }
+            30% { left: 140%; }
+            100% { left: 140%; }
+        }
+
+        .search-action-btn:hover {
+            background-color: #F8F9FA;
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(31, 78, 121, 0.12);
+        }
+
+        .search-action-btn:active {
+            transform: translateY(1px) scale(0.97);
+            background-color: #F1F3F4;
+            box-shadow: 0 1px 3px rgba(31, 78, 121, 0.08);
+        }
+
+        /* Sparkle icon rotating and pulsing animation */
+        .sparkle-icon {
+            font-size: 13px;
+            display: inline-block;
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            color: var(--accent-color);
+        }
+
+        .search-action-btn:hover .sparkle-icon {
+            transform: rotate(180deg) scale(1.2);
+            animation: sparkle-pulse 1.2s infinite alternate;
+        }
+
+        @keyframes sparkle-pulse {
+            0% { text-shadow: 0 0 3px rgba(31, 78, 121, 0.2); }
+            100% { text-shadow: 0 0 8px rgba(31, 78, 121, 0.5), 0 0 12px rgba(0, 240, 255, 0.3); }
+        }
+
+        /* Header Right Slogan (DDG Style) */
+        .header-right {
+            display: none;
+            align-items: center;
+            justify-content: flex-end;
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-left: auto;
+            padding-right: 40px;
+            font-weight: 500;
+        }
+
+        .state-results .header-right {
+            display: flex;
+        }
+
+        /* Google-style Buttons Row */
+        .button-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+            justify-content: center;
+        }
+
+        .state-results .button-row {
+            display: none;
+        }
+
+        .google-btn {
+            background-color: #f8f9fa;
+            border: 1px solid #f8f9fa;
+            border-radius: 4px;
+            color: #3c4043;
+            font-family: var(--font-family);
+            font-size: 14px;
+            padding: 0 16px;
+            line-height: 27px;
+            height: 36px;
+            min-width: 54px;
+            text-align: center;
+            cursor: pointer;
+            user-select: none;
+            transition: border 0.1s, box-shadow 0.1s, background-color 0.1s;
+        }
+
+        .google-btn:hover {
+            box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+            background-color: #f8f9fa;
+            border: 1px solid #dadce0;
+            color: #202124;
+        }
+
+        /* DDG Tagline & Promo Cards */
+        .ddg-tagline {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-top: 20px;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .state-results .ddg-tagline {
+            display: none;
+        }
+
+        .ddg-cards-row {
+            display: flex;
+            gap: 16px;
+            width: 100%;
+            max-width: 584px;
+            margin-top: 15px;
+            justify-content: center;
+        }
+
+        .state-results .ddg-cards-row {
+            display: none;
+        }
+
+        .ddg-card {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 20px 16px;
+            background-color: var(--card-bg);
+            border: 1px solid #ECEFF1;
+            border-radius: 12px;
+            transition: var(--transition-smooth);
+        }
+
+        .ddg-card:hover {
+            box-shadow: var(--shadow-md);
+            border-color: var(--border-hover);
+            transform: translateY(-2px);
+        }
+
+        .ddg-card-icon {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .ddg-card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+        }
+
+        .ddg-card-desc {
+            font-size: 11px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* Language line */
+        .language-line {
+            margin-top: 28px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        .state-results .language-line {
+            display: none;
+        }
+
+        .lang-link {
+            color: var(--link-color);
+            text-decoration: none;
+            margin-left: 6px;
+        }
+
+        .lang-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Quick links text row */
+        .quick-links-text-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 18px;
+            justify-content: center;
             font-size: 13px;
             color: var(--text-secondary);
         }
 
-        .result-domain {
+        .state-results .quick-links-text-row {
+            display: none;
+        }
+
+        .quick-text-link {
+            color: var(--link-color);
+            text-decoration: none;
             font-weight: 500;
+        }
+
+        .quick-text-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Category Navigation Tabs - Segmented Pill Control style */
+        .category-tabs {
+            display: none;
+            background-color: #F1F3F4; /* Soft grey container background */
+            border-radius: 18px;
+            padding: 3px;
+            gap: 2px;
+            align-self: flex-start;
+        }
+
+        .state-results .category-tabs {
+            display: inline-flex;
+            margin-left: 180px;
+            margin-top: 6px;
+            margin-bottom: 6px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) inset;
+        }
+
+        .category-tab {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            padding: 5px 16px;
+            cursor: pointer;
+            border-radius: 15px;
+            border-bottom: none;
+            transition: var(--transition-smooth);
+            user-select: none;
+        }
+
+        .category-tab:hover {
+            color: var(--text-primary);
+            background-color: rgba(0, 0, 0, 0.04);
+        }
+
+        .category-tab.active {
+            color: var(--accent-color); /* Indigo text */
+            background-color: #FFFFFF; /* White active background */
+            font-weight: 600;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+        }
+
+        /* Main Content Layout (DDG Dual Column Style) */
+        .main-content-layout {
+            width: 100%;
+            display: flex;
+            gap: 60px;
+            z-index: 1;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .state-results .main-content-layout {
+            margin-top: 105px; /* Snug fit offset for sleeker header */
+            padding-left: 180px; /* Align search results with input box */
+            padding-right: 40px;
+            padding-bottom: 60px;
+        }
+
+        .results-column {
+            flex-grow: 1;
+            max-width: 652px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* DDG Sub-header Settings Bar */
+        .settings-bar {
+            display: flex;
+            gap: 16px;
+            padding: 8px 0;
+            font-size: 13px;
+            color: var(--text-secondary);
+            border-bottom: 1px solid #ECEFF1;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+            user-select: none;
+        }
+
+        .setting-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: var(--transition-smooth);
+        }
+
+        .setting-item:hover {
+            background-color: #F1F3F4;
+            color: var(--text-primary);
+        }
+
+        .protected-badge {
+            color: #2b7d2b;
+            font-weight: 500;
+            background-color: #eaf5ea;
+            border-radius: 12px;
+            padding: 2px 10px;
+        }
+        
+        .protected-badge:hover {
+            background-color: #dceddc;
+            color: #2b7d2b;
+        }
+
+        .dropdown-arrow {
+            font-size: 8px;
+            color: var(--text-muted);
+            margin-left: 2px;
+        }
+
+        /* Results List */
+        .results-container {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* DDG-style text result card */
+        .result-card {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-bottom: 26px;
+        }
+
+        /* Meta Row: Favicon + domain path left, action icon right */
+        .result-meta-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 1px;
+        }
+
+        .result-meta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.3;
+        }
+
+        .favicon-icon {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .result-domain {
+            font-weight: 400;
+            color: var(--text-secondary);
         }
 
         .result-badge {
             font-size: 10px;
-            padding: 2px 6px;
-            border-radius: 4px;
-            background-color: rgba(255, 255, 255, 0.08);
+            color: var(--text-muted);
+            background-color: #f1f3f4;
+            padding: 1px 5px;
+            border-radius: 3px;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+        }
+
+        .result-actions {
+            font-size: 14px;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+            padding: 0 4px;
+            transition: var(--transition-smooth);
+        }
+
+        .result-actions:hover {
+            color: var(--text-primary);
         }
 
         /* Title link */
         .result-title-link {
-            font-size: 18px;
+            font-size: 19px;
             font-weight: 500;
-            color: var(--accent-color);
+            color: var(--link-color);
             text-decoration: none;
             line-height: 1.3;
-            transition: color 0.15s;
-            width: fit-content;
         }
 
         .result-title-link:hover {
-            color: var(--accent-hover);
+            color: var(--link-hover);
             text-decoration: underline;
         }
 
-        /* Snippet / Snippet description */
+        /* Snippet description */
         .result-snippet {
             font-size: 14px;
-            color: #C9D1D9;
+            color: var(--text-secondary);
             line-height: 1.5;
-            font-weight: 300;
+            font-weight: 400;
+            word-wrap: break-word;
+        }
+
+        /* DDG Related Searches Sidebar Column */
+        .suggestions-sidebar {
+            width: 320px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding-top: 5px;
+        }
+
+        .suggestions-sidebar-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+
+        .suggestions-sidebar-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .sidebar-suggestion-pill {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            background-color: #F8F9FA;
+            border: 1px solid #ECEFF1;
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 14px;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            text-decoration: none;
+        }
+
+        .sidebar-suggestion-pill:hover {
+            background-color: #FFFFFF;
+            border-color: var(--accent-color);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            color: var(--text-primary);
+        }
+
+        .sidebar-suggestion-icon {
+            color: var(--text-muted);
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+        }
+
+        /* DDG Image Grid layout */
+        .results-container.images-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 20px;
+            max-width: 900px;
+        }
+
+        .image-card {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            background-color: #FFFFFF;
+            border: 1px solid #ECEFF1;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: var(--transition-smooth);
+            text-decoration: none;
+            padding: 8px;
+        }
+
+        .image-card:hover {
+            box-shadow: var(--shadow-sm);
+        }
+
+        .image-card-img-wrapper {
+            width: 100%;
+            height: 130px;
+            border-radius: 6px;
+            overflow: hidden;
+            background-color: #F8F9FA;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .image-card-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .image-card-title {
+            font-size: 12px;
+            font-weight: 400;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .image-card-domain {
+            font-size: 11px;
+            color: var(--text-muted);
         }
 
         /* Status / Loader States */
         .status-container {
             width: 100%;
             display: none;
-            justify-content: center;
-            padding: 40px 0;
+            justify-content: flex-start;
+            align-items: center;
+            padding: 20px 0;
             color: var(--text-secondary);
-            font-size: 15px;
-            font-weight: 300;
+            font-size: 14px;
         }
 
         .spinner {
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(255, 255, 255, 0.1);
-            border-top-color: var(--accent-color);
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(0, 0, 0, 0.05);
+            border-top-color: var(--link-color);
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
             margin-right: 12px;
@@ -223,122 +784,332 @@
             to { transform: rotate(360deg); }
         }
 
-        /* Suggestions block style */
-        .suggestions-container {
-            margin-top: 10px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            width: 100%;
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
 
-        .suggestion-tag {
-            font-size: 13px;
-            padding: 6px 12px;
-            background-color: var(--surface-color);
-            border: 1px solid var(--border-color);
-            border-radius: 20px;
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: all 0.2s;
+        /* Responsiveness adjustments */
+        @media (max-width: 1000px) {
+            .main-content-layout {
+                flex-direction: column;
+                gap: 30px;
+            }
+            .state-results .main-content-layout {
+                padding-left: 20px;
+                padding-right: 20px;
+                margin-top: 185px;
+            }
+            .suggestions-sidebar {
+                width: 100%;
+            }
+            .state-results .category-tabs {
+                margin-left: 20px;
+            }
+            .state-results .header-main {
+                padding: 0 20px 10px 20px;
+                gap: 16px;
+            }
+            .state-results .logo-container {
+                display: none; /* Hide logo on small screens to save space */
+            }
         }
 
-        .suggestion-tag:hover {
-            color: var(--text-primary);
-            border-color: var(--accent-color);
-            background-color: rgba(88, 166, 255, 0.05);
+        @media (max-width: 600px) {
+            .logo-img-large {
+                width: 260px;
+                height: 90px;
+            }
+            .ddg-cards-row {
+                flex-direction: column;
+                gap: 12px;
+            }
+            .ddg-card {
+                padding: 16px 12px;
+            }
+            .state-results .main-content-layout {
+                margin-top: 195px;
+            }
         }
     </style>
 </head>
 <body>
 
     <div id="search-app" class="search-container state-initial">
-        <div class="logo-text" id="logo-button">Foe Search</div>
-        
-        <div class="search-box-wrapper">
-            <div class="search-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="11" cy="11" r="8"></circle>
-                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                </svg>
+        <div class="header-row">
+            <div class="header-main">
+                <div class="logo-container" id="logo-button">
+                    <img class="logo-img-small" src="logo.svg" alt="FOE Logo">
+                </div>
+                <div class="search-box-wrapper">
+                    <div class="search-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9AA0A6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                    </div>
+                    <input type="text" id="search-field" class="search-input" placeholder="ค้นหาข้อมูล หรือพิมพ์ที่อยู่เว็บ..." autocomplete="off" autofocus>
+                    <button class="search-action-btn">
+                        <span class="sparkle-icon">✦</span>
+                        <span class="btn-text">ค้นหา</span>
+                    </button>
+                </div>
+                <!-- Slogan on header right like DDG -->
+                <div class="header-right">
+                    <span>เป็นส่วนตัว • ปลอดภัย • ไร้การสะกดรอย</span>
+                </div>
             </div>
-            <input type="text" id="search-field" class="search-input" placeholder="Search the web securely..." autocomplete="off" autofocus>
+
+            <!-- Home State Logo and Input (Centered) -->
+            <div class="logo-container" id="home-logo">
+                <img class="logo-img-large" src="logo.svg" alt="FOE Logo">
+            </div>
+            
+            <div class="search-box-wrapper" id="home-search-wrapper">
+                <div class="search-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9AA0A6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                </div>
+                <!-- Input field targets search-field inside JavaScript -->
+                <button class="search-action-btn">
+                    <span class="sparkle-icon">✦</span>
+                    <span class="btn-text">ค้นหา</span>
+                </button>
+            </div>
+
+            <!-- Buttons -->
+            <div class="button-row">
+                <button class="google-btn" id="search-btn">ค้นหาด้วย FOE</button>
+                <button class="google-btn" id="lucky-btn">เปิดหน้าเว็บยอดนิยม</button>
+            </div>
+
+            <!-- Quick Text Links -->
+            <div class="quick-links-text-row">
+                <span>ทางลัดยอดนิยม:</span>
+                <a href="#" class="quick-text-link" data-url="https://pantip.com">Pantip</a>
+                <a href="#" class="quick-text-link" data-url="https://sanook.com">Sanook</a>
+                <a href="#" class="quick-text-link" data-url="https://th.wikipedia.org">วิกิพีเดีย</a>
+                <a href="#" class="quick-text-link" data-url="https://dict.longdo.com">พจนานุกรม</a>
+                <a href="#" class="quick-text-link" data-url="https://translate.google.co.th">แปลภาษา</a>
+            </div>
+
+
+            <!-- Language select row -->
+            <div class="language-line">
+                FOE.co.th ให้บริการในภาษา: <a href="#" class="lang-link">ไทย</a> <a href="#" class="lang-link">English</a>
+            </div>
+
+            <!-- Category Selector Tabs (Rendered in header) -->
+            <div class="category-tabs" id="category-tabs">
+                <div class="category-tab active" data-category="general">ทั้งหมด</div>
+                <div class="category-tab" data-category="images">รูปภาพ</div>
+                <div class="category-tab" data-category="videos">วิดีโอ</div>
+                <div class="category-tab" data-category="news">ข่าวสาร</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Layout (DDG Style Left Results / Right Suggestions) -->
+    <div id="results-layout" class="main-content-layout" style="display: none;">
+        <!-- Left Column (Settings bar, status, results) -->
+        <div class="results-column">
+            <!-- Loader Status -->
+            <div id="status" class="status-container">
+                <div class="spinner"></div>
+                <span>กำลังค้นหาข้อมูล...</span>
+            </div>
+
+            <!-- Results List -->
+            <div id="results" class="results-container"></div>
         </div>
 
-        <div id="suggestions" class="suggestions-container" style="display: none;"></div>
+        <!-- Right Column (Sidebar Suggestions) -->
+        <div class="suggestions-sidebar" id="suggestions-sidebar" style="display: none;">
+            <div class="suggestions-sidebar-title" id="suggestions-title">คำค้นหาที่เกี่ยวข้อง</div>
+            <div class="suggestions-sidebar-list" id="suggestions-list"></div>
+        </div>
     </div>
-
-    <!-- Status message container -->
-    <div id="status" class="status-container">
-        <div class="spinner"></div>
-        <span>Searching...</span>
-    </div>
-
-    <!-- Results list -->
-    <div id="results" class="results-container"></div>
 
     <script>
         const app = document.getElementById('search-app');
-        const input = document.getElementById('search-field');
+        const resultsLayout = document.getElementById('results-layout');
         const resultsContainer = document.getElementById('results');
         const statusContainer = document.getElementById('status');
-        const suggestionsContainer = document.getElementById('suggestions');
+        const suggestionsSidebar = document.getElementById('suggestions-sidebar');
+        const suggestionsList = document.getElementById('suggestions-list');
         const logoButton = document.getElementById('logo-button');
+        
+        // Setup Search Field input targets
+        const headerSearchWrapper = document.querySelector('.header-main .search-box-wrapper');
+        const homeSearchWrapper = document.getElementById('home-search-wrapper');
+        const searchField = document.getElementById('search-field');
+        const searchBtn = document.getElementById('search-btn');
+        const luckyBtn = document.getElementById('lucky-btn');
+        const searchActionBtns = document.querySelectorAll('.search-action-btn');
+        
+        let currentCategory = 'general';
 
-        // Parse search query from URL parameter on load
+        // Set up the shared single input field for both states
+        function positionInputField() {
+            if (app.classList.contains('state-initial')) {
+                if (searchField.parentElement !== homeSearchWrapper) {
+                    const btn = homeSearchWrapper.querySelector('.search-action-btn');
+                    homeSearchWrapper.insertBefore(searchField, btn);
+                }
+            } else {
+                if (searchField.parentElement !== headerSearchWrapper) {
+                    const btn = headerSearchWrapper.querySelector('.search-action-btn');
+                    headerSearchWrapper.insertBefore(searchField, btn);
+                }
+            }
+            searchField.focus();
+        }
+
+        // Initialize state on load
         window.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams(window.location.search);
             const query = params.get('q');
+            const category = params.get('category') || 'general';
+            
             if (query && query.trim() !== '') {
-                input.value = query;
-                performSearch(query);
+                app.className = 'search-container state-results';
+                searchField.value = query;
+                currentCategory = category;
+                
+                // Set active tab styling
+                document.querySelectorAll('.category-tab').forEach(t => {
+                    t.classList.remove('active');
+                    if (t.getAttribute('data-category') === currentCategory) {
+                        t.classList.add('active');
+                    }
+                });
+
+                positionInputField();
+                performSearch(query, currentCategory);
+            } else {
+                app.className = 'search-container state-initial';
+                positionInputField();
             }
         });
 
-        // Trigger search on Enter key
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                const query = input.value.trim();
+        // Add event listeners to category tabs
+        document.querySelectorAll('.category-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentCategory = tab.getAttribute('data-category');
+                
+                const query = searchField.value.trim();
                 if (query !== '') {
-                    // Update URL without reloading page
-                    const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?q=' + encodeURIComponent(query);
+                    const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?q=' + encodeURIComponent(query) + '&category=' + currentCategory;
                     window.history.pushState({ path: newUrl }, '', newUrl);
-                    performSearch(query);
+                    performSearch(query, currentCategory);
+                }
+            });
+        });
+
+        // Attach quick links navigation handler
+        document.querySelectorAll('.quick-text-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const url = link.getAttribute('data-url');
+                if (url) {
+                    window.location.href = url;
+                }
+            });
+        });
+
+        // Trigger search on Enter key
+        searchField.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const query = searchField.value.trim();
+                if (query !== '') {
+                    const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?q=' + encodeURIComponent(query) + '&category=' + currentCategory;
+                    window.history.pushState({ path: newUrl }, '', newUrl);
+                    app.className = 'search-container state-results';
+                    positionInputField();
+                    performSearch(query, currentCategory);
                 }
             }
         });
 
+        // Trigger search on Button click
+        searchBtn.addEventListener('click', () => {
+            const query = searchField.value.trim();
+            if (query !== '') {
+                const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?q=' + encodeURIComponent(query) + '&category=' + currentCategory;
+                window.history.pushState({ path: newUrl }, '', newUrl);
+                app.className = 'search-container state-results';
+                positionInputField();
+                performSearch(query, currentCategory);
+            }
+        });
+
+        // Trigger search on inline action button clicks (Android 14 style buttons)
+        searchActionBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const query = searchField.value.trim();
+                if (query !== '') {
+                    const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?q=' + encodeURIComponent(query) + '&category=' + currentCategory;
+                    window.history.pushState({ path: newUrl }, '', newUrl);
+                    app.className = 'search-container state-results';
+                    positionInputField();
+                    performSearch(query, currentCategory);
+                }
+            });
+        });
+
+        // Lucky button action (Redirects to Pantip)
+        luckyBtn.addEventListener('click', () => {
+            window.location.href = 'https://pantip.com';
+        });
+
         // Click logo to go back to home state
         logoButton.addEventListener('click', () => {
-            input.value = '';
+            searchField.value = '';
+            currentCategory = 'general';
+            
+            // Set default tab back to general
+            document.querySelectorAll('.category-tab').forEach(t => {
+                t.classList.remove('active');
+                if (t.getAttribute('data-category') === 'general') {
+                    t.classList.add('active');
+                }
+            });
+
             // Reset URL
             const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
             window.history.pushState({ path: newUrl }, '', newUrl);
             
             // Go to initial state
             app.className = 'search-container state-initial';
-            resultsContainer.style.display = 'none';
+            positionInputField();
+            resultsLayout.style.display = 'none';
             statusContainer.style.display = 'none';
-            suggestionsContainer.style.display = 'none';
-            input.focus();
+            suggestionsSidebar.style.display = 'none';
         });
 
         // Perform AJAX search against SearXNG JSON API
-        async function performSearch(query) {
-            // Change UI to results state
-            app.className = 'search-container state-results';
+        async function performSearch(query, category = 'general') {
+            resultsLayout.style.display = 'flex';
             resultsContainer.style.display = 'none';
-            suggestionsContainer.style.display = 'none';
+            suggestionsSidebar.style.display = 'none';
             
             // Show loading status
             statusContainer.style.display = 'flex';
-            statusContainer.innerHTML = '<div class="spinner"></div><span>Searching...</span>';
+            statusContainer.innerHTML = '<div class="spinner"></div><span>กำลังค้นหา...</span>';
 
             try {
                 // Fetch JSON results from the SearXNG endpoint
-                // Since this HTML is hosted on the same origin (http://localhost:8080/static/custom-ui/index.html),
-                // we can query the /search endpoint relatively!
-                const response = await fetch(`/search?q=${encodeURIComponent(query)}&format=json`);
+                let fetchUrl = `/search?q=${encodeURIComponent(query)}&format=json`;
+                if (category !== 'general') {
+                    fetchUrl += `&categories=${category}`;
+                }
+
+                const response = await fetch(fetchUrl);
                 if (!response.ok) {
                     throw new Error('Search request failed');
                 }
@@ -348,69 +1119,108 @@
                 statusContainer.style.display = 'none';
 
                 // Display results
-                renderResults(data);
+                renderResults(data, category);
             } catch (error) {
                 console.error(error);
                 statusContainer.style.display = 'flex';
-                statusContainer.innerHTML = `<span style="color: #FF6B6B;">Error: Unable to connect to Search Engine. Please make sure SearXNG is running.</span>`;
+                statusContainer.innerHTML = `<span style="color: #d93025; font-size: 14px;">เกิดข้อผิดพลาด: ไม่สามารถเชื่อมต่อกับเครื่องมือค้นหาหลักได้</span>`;
             }
         }
 
-        // Render JSON search results into minimal cards
-        function renderResults(data) {
+        // Render JSON search results into DDG-style lists
+        function renderResults(data, category) {
             resultsContainer.innerHTML = '';
+            resultsContainer.className = 'results-container'; // Reset grid styles
             
             if (!data.results || data.results.length === 0) {
                 resultsContainer.style.display = 'flex';
-                resultsContainer.innerHTML = '<div style="text-align: center; color: var(--text-secondary); width: 100%; padding: 40px 0; font-weight: 300;">No results found. Try a different keyword.</div>';
+                resultsContainer.innerHTML = '<div style="color: var(--text-secondary); padding: 40px 0; font-size: 14px;">ไม่พบผลลัพธ์การค้นหาสำหรับคำนี้</div>';
                 return;
             }
 
-            // Loop and render search result cards
-            data.results.forEach(item => {
-                const card = document.createElement('div');
-                card.className = 'result-card';
+            if (category === 'images') {
+                resultsContainer.classList.add('images-grid');
+                data.results.forEach(item => {
+                    const card = document.createElement('a');
+                    card.className = 'image-card';
+                    card.href = item.url;
+                    card.target = '_blank';
+                    
+                    const imgUrl = item.thumbnail || item.img_src || '';
+                    
+                    let domain = '';
+                    try {
+                        const parsedUrl = new URL(item.url);
+                        domain = parsedUrl.hostname.replace('www.', '');
+                    } catch(e) {
+                        domain = item.url;
+                    }
 
-                // Parse readable host/domain from URL
-                let domain = '';
-                try {
-                    const parsedUrl = new URL(item.url);
-                    domain = parsedUrl.hostname.replace('www.', '');
-                } catch(e) {
-                    domain = item.url;
-                }
-
-                // Collect sources/engines list
-                const enginesList = item.engines ? item.engines.join(', ') : 'search';
-
-                card.innerHTML = `
-                    <div class="result-meta">
-                        <span class="result-domain">${domain}</span>
-                        <span class="result-badge">${enginesList}</span>
-                    </div>
-                    <a class="result-title-link" href="${item.url}" target="_blank">${escapeHTML(item.title)}</a>
-                    <div class="result-snippet">${escapeHTML(item.content || '')}</div>
-                `;
-                resultsContainer.appendChild(card);
-            });
-
-            // Handle search suggestions if available
-            if (data.suggestions && data.suggestions.length > 0) {
-                suggestionsContainer.innerHTML = '';
-                // Limit to 5 suggestions max
-                data.suggestions.slice(0, 5).forEach(suggestion => {
-                    const tag = document.createElement('span');
-                    tag.className = 'suggestion-tag';
-                    tag.textContent = suggestion;
-                    tag.addEventListener('click', () => {
-                        input.value = suggestion;
-                        const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?q=' + encodeURIComponent(suggestion);
-                        window.history.pushState({ path: newUrl }, '', newUrl);
-                        performSearch(suggestion);
-                    });
-                    suggestionsContainer.appendChild(tag);
+                    card.innerHTML = `
+                        <div class="image-card-img-wrapper">
+                            ${imgUrl ? `<img class="image-card-img" src="${imgUrl}" alt="${escapeHTML(item.title)}" onerror="this.src='data:image/svg+xml;charset=utf-8,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 width%3D%22240%22 height%3D%22180%22 viewBox%3D%220 0 240 180%22%3E%3Crect width%3D%22240%22 height%3D%22180%22 fill%3D%22%23F8F9FA%22%2F%3E%3Ctext x%3D%2250%25%22 y%3D%2250%25%22 dominant-baseline%3D%22middle%22 text-anchor%3D%22middle%22 fill%3D%22%239AA0A6%22 font-family%3D%22sans-serif%22 font-size%3D%2212%22%3ENo Image%3C%2Ftext%3E%3C%2Fsvg%3E';">` : `<div style="color: var(--text-muted); font-size: 12px;">ไม่มีรูปภาพ</div>`}
+                        </div>
+                        <div class="image-card-title">${escapeHTML(item.title)}</div>
+                        <div class="image-card-domain">${domain}</div>
+                    `;
+                    resultsContainer.appendChild(card);
                 });
-                suggestionsContainer.style.display = 'flex';
+            } else {
+                // Loop and render search result items in DDG style
+                data.results.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = 'result-card';
+
+                    let domain = '';
+                    try {
+                        const parsedUrl = new URL(item.url);
+                        domain = parsedUrl.hostname.replace('www.', '');
+                    } catch(e) {
+                        domain = item.url;
+                    }
+
+                    const enginesList = item.engines ? item.engines.join(', ') : 'search';
+
+                    card.innerHTML = `
+                        <div class="result-meta-row">
+                            <div class="result-meta">
+                                <span class="favicon-icon">🌐</span>
+                                <span class="result-domain">${domain}</span>
+                                <span class="result-badge">${enginesList}</span>
+                            </div>
+                            <div class="result-actions">⋮</div>
+                        </div>
+                        <a class="result-title-link" href="${item.url}" target="_blank">${escapeHTML(item.title)}</a>
+                        <div class="result-snippet">${escapeHTML(item.content || '')}</div>
+                    `;
+                    resultsContainer.appendChild(card);
+                });
+            }
+
+            // Handle search suggestions in sidebar (DDG style Related Searches)
+            if (data.suggestions && data.suggestions.length > 0) {
+                suggestionsList.innerHTML = '';
+                // Limit to 6 suggestions max in the sidebar
+                data.suggestions.slice(0, 6).forEach(suggestion => {
+                    const pill = document.createElement('div');
+                    pill.className = 'sidebar-suggestion-pill';
+                    
+                    pill.innerHTML = `
+                        <span class="sidebar-suggestion-icon">🔍</span>
+                        <span>${escapeHTML(suggestion)}</span>
+                    `;
+                    
+                    pill.addEventListener('click', () => {
+                        searchField.value = suggestion;
+                        const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?q=' + encodeURIComponent(suggestion) + '&category=' + currentCategory;
+                        window.history.pushState({ path: newUrl }, '', newUrl);
+                        performSearch(suggestion, currentCategory);
+                    });
+                    suggestionsList.appendChild(pill);
+                });
+                suggestionsSidebar.style.display = 'flex';
+            } else {
+                suggestionsSidebar.style.display = 'none';
             }
 
             resultsContainer.style.display = 'flex';

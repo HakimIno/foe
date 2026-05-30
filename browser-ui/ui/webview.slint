@@ -1,5 +1,37 @@
 import { ProIcon, ProIconKind } from "common.slint";
 
+component FeatureHint inherits HorizontalLayout {
+    in property <ProIconKind> icon;
+    in property <string> label;
+
+    spacing: 5px;
+    alignment: center;
+
+    ProIcon {
+        icon: root.icon;
+        icon-color: #52525B;
+        icon-width: 11px;
+        icon-height: 11px;
+        stroke-width: 1.4px;
+        width: 14px;
+        height: 14px;
+    }
+
+    Text {
+        text: root.label;
+        color: #52525B;
+        font-size: 11px;
+        font-weight: 500;
+        vertical-alignment: center;
+    }
+}
+
+component HintDivider inherits Rectangle {
+    width: 1px;
+    height: 10px;
+    background: #3A3B3E;
+}
+
 export component Webview inherits Rectangle {
     in property <string> current-url;
     in property <string> current-title;
@@ -7,7 +39,7 @@ export component Webview inherits Rectangle {
 
     callback search_submitted(string);
 
-    background: #FFFFFF;
+    background: #1E1F22;
 
     if current-url != "about:newtab" && current-url != "about:blank" && current-url != "" : Image {
         source: frame;
@@ -18,44 +50,63 @@ export component Webview inherits Rectangle {
 
     if current-url == "about:newtab" || current-url == "about:blank" || current-url == "" : VerticalLayout {
         alignment: center;
-        spacing: 28px;
 
-        Text {
-            text: "Google";
-            color: #4285F4;
-            font-size: 56px;
-            font-weight: 700;
-            horizontal-alignment: center;
+        VerticalLayout {
+            alignment: center;
+            spacing: 8px;
+            padding-bottom: 36px;
+
+            Text {
+                text: "foe";
+                color: #FAFAFA;
+                font-size: 44px;
+                font-weight: 700;
+                letter-spacing: -1.5px;
+                horizontal-alignment: center;
+            }
+
+            Text {
+                text: "สืบค้น";
+                color: #71717A;
+                font-size: 11px;
+                font-weight: 500;
+                letter-spacing: 10px;
+                horizontal-alignment: center;
+            }
         }
 
         HorizontalLayout {
             alignment: center;
+            padding-bottom: 24px;
 
             Rectangle {
-                width: 520px;
-                height: 46px;
-                background: #FFFFFF;
-                border-radius: 23px;
+                width: 540px;
+                height: 44px;
+                background: search-input.has-focus ? #323338 : #2C2D30;
+                border-radius: 11px;
                 border-width: 1px;
-                border-color: #DFE1E5;
+                border-color: search-input.has-focus ? #52525B : #3A3B3E;
+
+                animate background { duration: 150ms; }
+                animate border-color { duration: 150ms; }
 
                 HorizontalLayout {
-                    padding-left: 18px;
-                    padding-right: 18px;
+                    padding-left: 16px;
+                    padding-right: 16px;
                     spacing: 12px;
 
                     ProIcon {
                         icon: ProIconKind.Search;
-                        icon-color: #9AA0A6;
-                        icon-width: 16px;
-                        icon-height: 16px;
-                        stroke-width: 1.5px;
+                        icon-color: search-input.has-focus ? #A1A1AA : #71717A;
+                        icon-width: 15px;
+                        icon-height: 15px;
+                        stroke-width: 1.6px;
                         y: (parent.height - self.height) / 2;
                     }
 
                     search-input := TextInput {
                         text: "";
-                        color: #202124;
+                        color: #FAFAFA;
                         font-size: 14px;
                         font-weight: 400;
                         vertical-alignment: center;
@@ -66,12 +117,39 @@ export component Webview inherits Rectangle {
                     }
 
                     if search-input.text == "" && !search-input.has-focus : Text {
-                        text: "Search Google or type a URL";
-                        color: #9AA0A6;
+                        text: "ค้นหาหรือป้อนที่อยู่เว็บ";
+                        color: #52525B;
                         font-size: 14px;
                         vertical-alignment: center;
                     }
                 }
+            }
+        }
+
+        HorizontalLayout {
+            alignment: center;
+            spacing: 14px;
+
+            FeatureHint {
+                icon: ProIconKind.Shield;
+                label: "Shields เปิดอยู่";
+            }
+
+            HintDivider {}
+
+            FeatureHint {
+                icon: ProIconKind.Lock;
+                label: "ไม่บันทึกประวัติ";
+            }
+
+            HintDivider {}
+
+            Text {
+                text: "ไม่ติดตาม";
+                color: #52525B;
+                font-size: 11px;
+                font-weight: 500;
+                vertical-alignment: center;
             }
         }
     }

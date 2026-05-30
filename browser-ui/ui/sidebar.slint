@@ -46,9 +46,9 @@ component SidebarTab inherits Rectangle {
         ProIcon {
             icon: ProIconKind.Document;
             icon-color: root.active ? #FFFFFF : #71717A;
-            icon-width: 12px;
-            icon-height: 12px;
-            stroke-width: 1px;
+            icon-width: 14px;
+            icon-height: 14px;
+            stroke-width: 1.6px;
             y: (parent.height - self.height) / 2;
         }
 
@@ -72,9 +72,9 @@ component SidebarTab inherits Rectangle {
         ProIcon {
             icon: ProIconKind.Cancel;
             icon-color: #A0A0AA;
-            icon-width: 8px;
-            icon-height: 8px;
-            stroke-width: 1px;
+            icon-width: 10px;
+            icon-height: 10px;
+            stroke-width: 1.5px;
         }
 
         touch-close := TouchArea {
@@ -130,9 +130,9 @@ export component Sidebar inherits Rectangle {
                     ProIcon {
                         icon: ProIconKind.Person;
                         icon-color: #D4D4D8;
-                        icon-width: 12px;
-                        icon-height: 12px;
-                        stroke-width: 1px;
+                        icon-width: 14px;
+                        icon-height: 14px;
+                        stroke-width: 1.6px;
                     }
                 }
                 Text {
@@ -254,9 +254,9 @@ export component Sidebar inherits Rectangle {
                     ProIcon {
                         icon: ProIconKind.Shield;
                         icon-color: root.shields-active ? #FFFFFF : #71717A;
-                        icon-width: 12px;
-                        icon-height: 12px;
-                        stroke-width: 1.2px;
+                        icon-width: 14px;
+                        icon-height: 14px;
+                        stroke-width: 1.6px;
                         y: (parent.height - self.height) / 2;
                     }
                     Text {

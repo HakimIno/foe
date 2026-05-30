@@ -1,0 +1,55 @@
+/* foe compat baseline — minimal cross-browser fixes injected via Servo's
+ * UserContentManager.add_stylesheet(). Kept intentionally small: every rule
+ * here ships to every site, so it must be safe enough that no real site
+ * relies on the opposite behavior.
+ *
+ * Selectors are wrapped in :where() wherever possible to keep specificity
+ * at (0,0,0) so any site rule wins automatically — these are defaults, not
+ * overrides.
+ *
+ * If a fix is site-specific, put it in compat::site_rules instead.
+ */
+
+/* Box-sizing baseline matches what every modern reset/normalize ships. Most
+ * sites already declare this themselves; this rule just keeps Servo's
+ * default (content-box) from leaking through when they don't. Universal
+ * selector already has specificity 0, so site rules win. */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+/* Buttons should look clickable. Chrome/Safari default to `cursor: default`
+ * on <button>; Servo follows that, but UX guidelines call for pointer.
+ * :where() keeps specificity at 0. */
+:where(button:not(:disabled), [role="button"]:not([aria-disabled="true"])) {
+    cursor: pointer;
+}
+
+/* Form controls should inherit font from the surrounding page by default.
+ * Without this, Servo uses its UA stylesheet font and inputs look out of
+ * place inside designed forms. :where() keeps specificity at 0. */
+:where(input, button, textarea, select) {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+}
+
+/* The HTML <dialog> element's UA styles vary; Servo's implementation may
+ * not match Chrome. Force a sane default so modal dialogs at least render
+ * as a positioned block. */
+:where(dialog:not([open])) {
+    display: none;
+}
+:where(dialog[open]) {
+    display: block;
+}
+
+/* Smooth scrolling for in-page anchors — matches modern Chrome default
+ * behavior and keeps single-page navigation feeling polished. */
+@media (prefers-reduced-motion: no-preference) {
+    :where(html) {
+        scroll-behavior: smooth;
+    }
+}

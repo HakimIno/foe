@@ -10,101 +10,13 @@ pub mod input;
 pub mod rendering;
 pub mod waker;
 
+use browser_core::compat;
+use servo::user_contents::UserStyleSheet;
 use servo::{
     Preferences, RenderingContext, Servo, UserContentManager, UserScript,
     WebView as ServoWebView, WebViewBuilder,
 };
 use std::rc::Rc;
-
-/// Chrome 131 desktop UA on macOS. Many sites server-side sniff UA and serve
-/// a stripped-down mobile/no-JS markup to unrecognized agents (Servo's default
-/// "Firefox 140 / Servo" string trips this). Pretending to be Chrome avoids
-/// that and lets us focus on real engine differences.
-const DESKTOP_UA: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) \
-                          AppleWebKit/537.36 (KHTML, like Gecko) \
-                          Chrome/131.0.0.0 Safari/537.36";
-
-/// Minimal JS shims for the Web APIs Servo is missing that modern sites rely
-/// on. These don't fully implement the APIs — they just satisfy the existence
-/// checks so first-paint code paths don't throw and degrade the layout:
-///   * IntersectionObserver: lazy-load triggers fire immediately, so `<img>`
-///     placeholders actually load.
-///   * Element.prototype.animate: returns a stub Animation that's "finished"
-///     so animation chains don't reject.
-///   * SVGAElement: empty class so `instanceof SVGAElement` checks return false
-///     instead of throwing ReferenceError.
-const POLYFILLS_JS: &str = r#"
-(function() {
-    if (typeof IntersectionObserver === 'undefined') {
-        globalThis.IntersectionObserver = class {
-            constructor(cb, opts) { this._cb = cb; this._opts = opts || {}; }
-            observe(target) {
-                Promise.resolve().then(() => {
-                    var rect = (target && target.getBoundingClientRect)
-                        ? target.getBoundingClientRect()
-                        : { top:0, left:0, right:0, bottom:0, width:0, height:0, x:0, y:0 };
-                    var entry = {
-                        target: target,
-                        isIntersecting: true,
-                        intersectionRatio: 1,
-                        boundingClientRect: rect,
-                        intersectionRect: rect,
-                        rootBounds: null,
-                        time: (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()
-                    };
-                    try { this._cb([entry], this); } catch (e) {}
-                });
-            }
-            unobserve() {}
-            disconnect() {}
-            takeRecords() { return []; }
-        };
-    }
-    if (typeof Element !== 'undefined' && !Element.prototype.animate) {
-        Element.prototype.animate = function(_keyframes, _options) {
-            var finished = Promise.resolve();
-            return {
-                play(){}, pause(){}, reverse(){}, cancel(){}, finish(){}, persist(){},
-                commitStyles(){}, updatePlaybackRate(){},
-                addEventListener(){}, removeEventListener(){}, dispatchEvent(){ return true; },
-                id: '', playState: 'finished', playbackRate: 1, startTime: 0, currentTime: 0,
-                timeline: null, effect: null,
-                finished: finished, ready: finished,
-                onfinish: null, oncancel: null, onremove: null
-            };
-        };
-    }
-    if (typeof SVGAElement === 'undefined') {
-        globalThis.SVGAElement = function SVGAElement() {};
-        globalThis.SVGAElement.prototype = Object.create(
-            (typeof SVGGraphicsElement !== 'undefined' ? SVGGraphicsElement : Object).prototype
-        );
-    }
-    if (typeof ResizeObserver === 'undefined') {
-        globalThis.ResizeObserver = class {
-            constructor(cb) { this._cb = cb; }
-            observe(target) {
-                Promise.resolve().then(() => {
-                    var rect = (target && target.getBoundingClientRect)
-                        ? target.getBoundingClientRect()
-                        : { top:0, left:0, right:0, bottom:0, width:0, height:0 };
-                    try {
-                        this._cb([{
-                            target: target,
-                            contentRect: rect,
-                            borderBoxSize: [{ inlineSize: rect.width, blockSize: rect.height }],
-                            contentBoxSize: [{ inlineSize: rect.width, blockSize: rect.height }],
-                            devicePixelContentBoxSize: [{ inlineSize: rect.width, blockSize: rect.height }]
-                        }], this);
-                    } catch (e) {}
-                });
-            }
-            unobserve() {}
-            disconnect() {}
-        };
-    }
-})();
-"#;
 
 use dpi::PhysicalSize;
 use i_slint_backend_winit::WinitWindowAccessor;
@@ -215,9 +127,12 @@ impl ServoEngine {
         let waker = Box::new(waker::SlintWaker::new());
 
         // Customize Servo preferences before construction so the very first
-        // network request already carries our desktop UA.
+        // network request already carries our desktop UA. `compat::user_agent`
+        // honors the FOE_USER_AGENT env var, so this picks up overrides.
+        let ua = compat::user_agent();
+        log::info!("[ServoEngine] User-Agent: {}", ua);
         let mut prefs = Preferences::default();
-        prefs.user_agent = DESKTOP_UA.to_string();
+        prefs.user_agent = ua;
 
         // Build the Servo instance with our preferences
         let servo_instance = servo::ServoBuilder::default()
@@ -225,10 +140,33 @@ impl ServoEngine {
             .event_loop_waker(waker)
             .build();
 
-        // Create the shared UserContentManager and register our Web-API
-        // polyfill once. Each WebViewBuilder will receive the same Rc.
+        // Create the shared UserContentManager and register foe's compat
+        // layer: JS polyfills for missing Web APIs + a baseline CSS that
+        // papers over generic rendering quirks. Each WebViewBuilder will
+        // receive the same Rc so all tabs share these patches.
+        //
+        // Both can be turned off at startup via FOE_DISABLE_POLYFILLS /
+        // FOE_DISABLE_BASELINE_CSS / FOE_DISABLE_COMPAT, which lets us A/B
+        // test whether a rendering bug is in Servo itself or in our shims.
         let ucm = Rc::new(UserContentManager::new(&servo_instance));
-        ucm.add_script(Rc::new(UserScript::from(POLYFILLS_JS)));
+        if compat::polyfills_disabled() {
+            log::info!("[ServoEngine] Polyfill bundle disabled via env");
+        } else {
+            ucm.add_script(Rc::new(UserScript::from(compat::polyfill_bundle())));
+        }
+
+        // UserStyleSheet needs a URL to anchor any relative URLs inside the
+        // CSS. The baseline has none, so the placeholder URL is just an
+        // identifier — `foe://compat/baseline.css` makes the source obvious
+        // in debug tooling.
+        if compat::baseline_css_disabled() {
+            log::info!("[ServoEngine] Baseline stylesheet disabled via env");
+        } else if let Ok(stylesheet_url) = Url::parse("foe://compat/baseline.css") {
+            ucm.add_stylesheet(Rc::new(UserStyleSheet::new(
+                compat::baseline_stylesheet().to_string(),
+                stylesheet_url,
+            )));
+        }
 
         log::info!("[ServoEngine] Servo engine initialized successfully");
         self.servo = Some(servo_instance);

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140" width="100%" height="100%">
+  <!-- F letter (Vector Path) -->
+  <path d="M 75,25 L 120,25 L 120,37 L 87,37 L 87,53 L 115,53 L 115,65 L 87,65 L 87,85 L 75,85 Z" fill="#1E293B" />
+
+  <!-- Magnifying Glass O -->
+  <g>
+    <!-- Glass Circle -->
+    <circle cx="200" cy="55" r="24" stroke="#1E293B" stroke-width="12" fill="none" />
+    <!-- Handle (Soft Gold Accent) -->
+    <line x1="217" y1="72" x2="235" y2="90" stroke="#B8860B" stroke-width="12" stroke-linecap="round" />
+  </g>
+
+  <!-- E letter (Vector Path) -->
+  <path d="M 280,25 L 325,25 L 325,37 L 292,37 L 292,53 L 320,53 L 320,65 L 292,65 L 292,73 L 325,73 L 325,85 L 280,85 Z" fill="#1E293B" />
+
+  <!-- Small clean Thai subtitle (Offset slightly to center with letter-spacing) -->
+  <text x="203" y="122" font-family="'IBM Plex Sans Thai', sans-serif" font-weight="500" font-size="15" fill="#64748B" letter-spacing="8" text-anchor="middle">สืบค้น</text>
+</svg>
