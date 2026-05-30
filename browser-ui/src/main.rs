@@ -22,10 +22,23 @@ async fn main() -> Result<(), slint::PlatformError> {
     // (IntersectionObserver, Element.animate, SVGAElement, …), and each stderr
     // write blocks the main thread — silencing these two modules removes a
     // significant source of micro-stutter without hiding real errors elsewhere.
-    env_logger::Builder::from_default_env()
-        .filter_module("script::script_runtime", log::LevelFilter::Off)
-        .filter_module("script::dom::globalscope", log::LevelFilter::Off)
-        .init();
+    //
+    // Set FOE_JS_LOG=1 to drop the filter when debugging a broken page —
+    // the terminal will then surface every JS error and "missing API X"
+    // message so you can decide which polyfill to add next.
+    let mut log_builder = env_logger::Builder::from_default_env();
+    let js_log_enabled = matches!(
+        std::env::var("FOE_JS_LOG").as_deref(),
+        Ok("1") | Ok("true") | Ok("TRUE") | Ok("yes") | Ok("YES")
+    );
+    if !js_log_enabled {
+        log_builder
+            .filter_module("script::script_runtime", log::LevelFilter::Off)
+            .filter_module("script::dom::globalscope", log::LevelFilter::Off);
+    } else {
+        eprintln!("[foe] FOE_JS_LOG=1 — JS error/rejection logs are ON");
+    }
+    log_builder.init();
 
     // 0. Configure macOS titlebar transparency and full-size content view
     #[cfg(target_os = "macos")]

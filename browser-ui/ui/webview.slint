@@ -39,7 +39,7 @@ export component Webview inherits Rectangle {
 
     callback search_submitted(string);
 
-    background: #1E1F22;
+    background: (current-url == "about:newtab" || current-url == "about:blank" || current-url == "") ? #1E1F22 : #FFFFFF;
 
     if current-url != "about:newtab" && current-url != "about:blank" && current-url != "" : Image {
         source: frame;

@@ -1,33 +1,88 @@
-// Minimal ResizeObserver shim.
-// Real ResizeObserver fires whenever an element's content box changes size.
-// Servo's missing API → modern UI libraries (Material, Vuetify, headless
-// component libs) bail out on init. We fire one entry per observed element
-// at registration time so first-render logic completes; subsequent resizes
-// won't notify but most "init once" code paths get unblocked.
+// ResizeObserver shim with real change detection.
+//
+// The original stub fired one entry at observe() time and never again. That
+// unblocks "init once" patterns but breaks anything that depends on
+// re-measuring after layout shifts: responsive charts, virtualized lists,
+// auto-grow textareas.
+//
+// This polyfill polls getBoundingClientRect() of each observed target on
+// requestAnimationFrame and fires the callback whenever width or height
+// actually changed since the last tick. The RAF loop self-suspends when
+// the last target is unobserved so idle pages don't keep waking the main
+// thread. Cost is O(targets) per frame; targets are typically <100 even on
+// component-heavy pages, far cheaper than the layout work the observer is
+// reacting to.
 if (typeof ResizeObserver === 'undefined') {
+    const ACTIVE = new Set();
+    let rafScheduled = false;
+
+    const scheduleTick = function () {
+        if (rafScheduled) return;
+        rafScheduled = true;
+        const tick = function () {
+            rafScheduled = false;
+            let anyTargets = false;
+            ACTIVE.forEach(function (o) {
+                if (o._targets.size > 0) {
+                    o._poll();
+                    anyTargets = true;
+                }
+            });
+            if (anyTargets) scheduleTick();
+        };
+        if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(tick);
+        } else {
+            setTimeout(tick, 16);
+        }
+    };
+
     globalThis.ResizeObserver = class ResizeObserver {
-        constructor(cb) { this._cb = cb; this._targets = new Set(); }
+        constructor(callback) {
+            this._callback = callback;
+            // target → { w, h }; -1 sentinel so the first poll always fires
+            this._targets = new Map();
+        }
+
         observe(target) {
-            if (!target) return;
-            this._targets.add(target);
-            var self = this;
-            Promise.resolve().then(function () {
-                var rect = (target && target.getBoundingClientRect)
-                    ? target.getBoundingClientRect()
-                    : { top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0 };
-                var sizeEntry = { inlineSize: rect.width, blockSize: rect.height };
-                try {
-                    self._cb([{
+            if (!target || this._targets.has(target)) return;
+            this._targets.set(target, { w: -1, h: -1 });
+            ACTIVE.add(this);
+            scheduleTick();
+        }
+
+        unobserve(target) {
+            this._targets.delete(target);
+            if (this._targets.size === 0) ACTIVE.delete(this);
+        }
+
+        disconnect() {
+            this._targets.clear();
+            ACTIVE.delete(this);
+        }
+
+        _poll() {
+            const entries = [];
+            this._targets.forEach(function (state, target) {
+                if (!target || typeof target.getBoundingClientRect !== 'function') return;
+                if (target.isConnected === false) return;
+                const rect = target.getBoundingClientRect();
+                if (rect.width !== state.w || rect.height !== state.h) {
+                    state.w = rect.width;
+                    state.h = rect.height;
+                    const sizeEntry = { inlineSize: rect.width, blockSize: rect.height };
+                    entries.push({
                         target: target,
                         contentRect: rect,
                         borderBoxSize: [sizeEntry],
                         contentBoxSize: [sizeEntry],
                         devicePixelContentBoxSize: [sizeEntry]
-                    }], self);
-                } catch (e) {}
+                    });
+                }
             });
+            if (entries.length > 0) {
+                try { this._callback(entries, this); } catch (e) { /* swallow */ }
+            }
         }
-        unobserve(target) { this._targets.delete(target); }
-        disconnect() { this._targets.clear(); }
     };
 }

@@ -26,6 +26,15 @@
 //! * `FOE_DISABLE_POLYFILLS=1` — skip the JS polyfill bundle
 //! * `FOE_DISABLE_BASELINE_CSS=1` — skip the baseline stylesheet
 //! * `FOE_DISABLE_COMPAT=1` — shortcut: disables both polyfills and baseline
+//! * `FOE_ERUDA=1` — append the Eruda in-page DevTools loader to every
+//!   page (Console / Elements / Network / Sources). Useful since Servo
+//!   has no native DevTools. Loads from jsDelivr CDN at runtime, so the
+//!   first page after enabling needs network access.
+//! * `FOE_JS_LOG=1` — surface Servo's `script::script_runtime` and
+//!   `script::dom::globalscope` log records in the terminal. These are
+//!   normally filtered out because every missing-API call from a modern
+//!   page logs an ERROR line; enabling is invaluable when diagnosing a
+//!   specific broken site.
 
 pub mod polyfills;
 pub mod site_rules;
