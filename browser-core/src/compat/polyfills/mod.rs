@@ -14,9 +14,11 @@ const CUSTOM_ELEMENTS: &str = include_str!("custom_elements.js");
 const POINTER_EVENTS: &str = include_str!("pointer_events.js");
 
 /// Return the full polyfill bundle as a single string, ready to hand to
-/// `servo::UserScript::from(...)`.
+/// `servo::UserScript::from(...)`. Includes the per-domain site_rules
+/// dispatcher tail so site-specific patches ship through the same script
+/// injection — no extra plumbing needed on the embedder side.
 pub fn bundle() -> String {
-    [
+    let mut out = [
         "// === foe compat polyfills (injected by browser-core::compat) ===",
         INTERSECTION_OBSERVER,
         RESIZE_OBSERVER,
@@ -25,5 +27,8 @@ pub fn bundle() -> String {
         CUSTOM_ELEMENTS,
         POINTER_EVENTS,
     ]
-    .join("\n")
+    .join("\n");
+    out.push('\n');
+    out.push_str(&super::site_rules::runtime_dispatcher_js());
+    out
 }

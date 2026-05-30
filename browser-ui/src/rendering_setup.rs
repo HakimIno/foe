@@ -34,6 +34,18 @@ struct SharedState {
     prev_read_fbo: u32,
     prev_draw_fbo: u32,
     prev_scissor_enabled: bool,
+    // Cached CGL context pointer. CGLGetCurrentContext is a TLS lookup —
+    // not free, and unchanged for the lifetime of the Slint render thread.
+    // We capture it the first time we observe a non-null context and reuse
+    // it forever after, eliminating one syscall per frame.
+    #[cfg(target_os = "macos")]
+    cached_cgl_ctx: cgl::CGLContextObj,
+    // FBO texture attachments persist on the FBO until reassigned. We only
+    // need to call FramebufferTexture2D when the texture IDs change, which
+    // they don't after RenderingSetup pre-allocates them. Tracking the last
+    // attached IDs lets us skip the redundant attach calls each frame.
+    read_fbo_attached_tex: u32,
+    draw_fbo_attached_tex: u32,
 }
 
 thread_local! {
@@ -158,6 +170,10 @@ pub fn setup_rendering(
         prev_read_fbo: 0,
         prev_draw_fbo: 0,
         prev_scissor_enabled: false,
+        #[cfg(target_os = "macos")]
+        cached_cgl_ctx: std::ptr::null_mut(),
+        read_fbo_attached_tex: 0,
+        draw_fbo_attached_tex: 0,
     }));
 
     #[cfg(target_os = "macos")]
@@ -242,7 +258,19 @@ pub fn setup_rendering(
                         };
 
                         unsafe {
-                            let ctx = cgl::CGLGetCurrentContext();
+                            // CGLGetCurrentContext is a TLS lookup. The
+                            // context is stable for the lifetime of the
+                            // Slint render thread, so we capture it once
+                            // and reuse — saves one syscall per frame.
+                            let ctx = if !state.cached_cgl_ctx.is_null() {
+                                state.cached_cgl_ctx
+                            } else {
+                                let c = cgl::CGLGetCurrentContext();
+                                if !c.is_null() {
+                                    state.cached_cgl_ctx = c;
+                                }
+                                c
+                            };
                             if !ctx.is_null() {
                                 // 1. Capture Slint's GL state once on the first frame; on
                                 //    subsequent frames we trust the cached values, which avoids
@@ -351,24 +379,36 @@ pub fn setup_rendering(
                                     gl::Disable(gl::SCISSOR_TEST);
                                 }
 
-                                // 6. Setup blit FBOs
+                                // 6. Setup blit FBOs. FBO attachments are
+                                // sticky in the GL spec — once attached,
+                                // they stay until reassigned, so we only
+                                // FramebufferTexture2D when the cached
+                                // attachment doesn't match. After the
+                                // first frame both are stable, dropping
+                                // two GL calls per frame for free.
                                 gl::BindFramebuffer(gl::READ_FRAMEBUFFER, state.read_fbo);
-                                gl::FramebufferTexture2D(
-                                    gl::READ_FRAMEBUFFER,
-                                    gl::COLOR_ATTACHMENT0,
-                                    0x84F5, // GL_TEXTURE_RECTANGLE
-                                    state.texture_rect_id,
-                                    0,
-                                );
+                                if state.read_fbo_attached_tex != state.texture_rect_id {
+                                    gl::FramebufferTexture2D(
+                                        gl::READ_FRAMEBUFFER,
+                                        gl::COLOR_ATTACHMENT0,
+                                        0x84F5, // GL_TEXTURE_RECTANGLE
+                                        state.texture_rect_id,
+                                        0,
+                                    );
+                                    state.read_fbo_attached_tex = state.texture_rect_id;
+                                }
 
                                 gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, state.draw_fbo);
-                                gl::FramebufferTexture2D(
-                                    gl::DRAW_FRAMEBUFFER,
-                                    gl::COLOR_ATTACHMENT0,
-                                    gl::TEXTURE_2D,
-                                    state.texture_2d_id,
-                                    0,
-                                );
+                                if state.draw_fbo_attached_tex != state.texture_2d_id {
+                                    gl::FramebufferTexture2D(
+                                        gl::DRAW_FRAMEBUFFER,
+                                        gl::COLOR_ATTACHMENT0,
+                                        gl::TEXTURE_2D,
+                                        state.texture_2d_id,
+                                        0,
+                                    );
+                                    state.draw_fbo_attached_tex = state.texture_2d_id;
+                                }
 
                                 // 7. Blit!
                                 gl::BlitFramebuffer(
@@ -422,6 +462,12 @@ pub fn setup_rendering(
                     state.frame_published = false;
                     state.published_size = slint::PhysicalSize::new(0, 0);
                     state.prev_state_cached = false;
+                    #[cfg(target_os = "macos")]
+                    {
+                        state.cached_cgl_ctx = std::ptr::null_mut();
+                    }
+                    state.read_fbo_attached_tex = 0;
+                    state.draw_fbo_attached_tex = 0;
                 }
                 _ => {}
             }
