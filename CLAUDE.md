@@ -15,19 +15,24 @@ foe/
 │   └── test_plan.md        # Test cases และ failure mitigation guide
 ├── browser-core/           # Crate: business logic / backend engine
 │   ├── Cargo.toml
-│   └── src/lib.rs          # 3 modules: storage, shields, downloader
+│   └── src/
+│       ├── lib.rs          # Re-exports storage, shields, downloader modules
+│       ├── storage.rs      # Database (SQLite) logic
+│       ├── shields.rs      # Shields/adblock logic
+│       └── downloader.rs   # Download manager logic
 └── browser-ui/             # Crate: UI application
     ├── Cargo.toml
     ├── build.rs             # slint-build สำหรับคอมไพล์ .slint files
     ├── src/
-    │   ├── main.rs          # Entry point, bootstrap services, macOS titlebar config
-    │   ├── webview_manager.rs  # wry WebView lifecycle management
-    │   └── handlers/
-    │       ├── mod.rs       # get_site_type() helper
-    │       ├── navigation.rs   # navigate_to, back, forward, reload, shields
-    │       ├── tabs.rs         # select_tab, new_tab, close_tab, move_tab
-    │       ├── downloader.rs   # trigger_download handler
-    │       └── command_bar.rs  # command_bar_submit handler
+    │   ├── main.rs          # Entry point, orchestrate services
+    │   ├── rendering_setup.rs  # OpenGL & frame timer loop (extracted from main.rs)
+    │   ├── handlers/
+    │   │   ├── mod.rs       # get_site_type() helper
+    │   │   ├── navigation.rs   # navigate_to, back, forward, reload, shields
+    │   │   ├── tabs.rs         # select_tab, new_tab, close_tab, move_tab
+    │   │   ├── downloader.rs   # trigger_download handler
+    │   │   └── command_bar.rs  # command_bar_submit handler
+    │   └── servo_engine/    # Servo engine integration module
     └── ui/                  # Slint UI components
         ├── appwindow.slint  # Root window, layout, state properties, callbacks
         ├── tab_bar.slint    # แถบแท็บด้านบนสุด
@@ -62,7 +67,7 @@ foe/
 | `tokio` | 1.35 (full) | Async runtime |
 | `env_logger` | 0.11 | Logging |
 
-> **หมายเหตุ:** `Cargo.toml` ของ browser-ui ยังมี `servo` dependency อยู่แต่ webview_manager.rs ใช้ `wry` จริง การเชื่อมต่อ Servo engine เป็นส่วนที่ยังไม่ได้ implement (Phase 2)
+> **หมายเหตุ:** โปรเจคนี้ได้ทำการเชื่อมต่อและใช้งาน Servo engine เรียบร้อยแล้ว (ผ่านโมดูล `servo_engine/`) แทน wry/WebView แบบเดิม
 
 ---
 
@@ -72,12 +77,12 @@ foe/
 ```
 Main Thread (Slint event loop)
     ├── Slint UI rendering
-    ├── wry WebView (child window, OS-level)
+    ├── Servo Engine (native HTML/CSS rendering)
     └── Tokio async tasks (downloads, DB writes)
 ```
 
 - **Slint UI** รันบน Main Thread เสมอ — ห้าม block main thread
-- **wry WebView** ทำงานเป็น native child window ฝังอยู่ใต้ Slint window
+- **Servo Engine** รันบน main thread ร่วมกับ Slint โดยมี waker ปลุก event loop ของ Slint
 - ใช้ `slint::invoke_from_event_loop()` เพื่อ update UI จาก thread อื่น
 - ห้ามใช้ `.lock().unwrap()` แบบ blocking บน main thread
 
@@ -85,20 +90,20 @@ Main Thread (Slint event loop)
 ```
 AppWindow (Slint) ←→ Rust callbacks (handlers/)
     ↓
-WebViewManager (wry) — manages Vec<Option<WebView>>
+ServoEngine — manages Vec<ServoTab>
     ↓
 browser-core — Database, ShieldsEngine, DownloadManager
 ```
 
 - Slint properties เป็น single source of truth สำหรับ UI state
 - Rust handlers ใช้ `window.as_weak()` แล้วค่อย `.upgrade()` ใน callback
-- `WebViewManager` ใช้ `Rc<RefCell<>>` (single-threaded), ไม่ใช่ `Arc<Mutex<>>`
+- `ServoEngine` ใช้ `Rc<RefCell<>>` (single-threaded), ไม่ใช่ `Arc<Mutex<>>`
 - Services ที่แชร์ข้าม threads (`Database`, `ShieldsEngine`) ใช้ `Arc<Mutex<>>`
 
 ### WebView Layout
 - TabBar height: 38px
 - Navbar height: 38px
-- WebView y-offset: **76px** (`browser-ui/src/webview_manager.rs:139`)
+- WebView y-offset: **76px** (คำนวณแบบ physical pixels ตาม scale factor เมื่อ window resize)
 - WebView ปรับ bounds อัตโนมัติเมื่อ window resize ผ่าน winit `WindowEvent::Resized`
 
 ---
@@ -189,14 +194,14 @@ node scripts/generate-icons.mjs
 - `on_toggle_shields` → toggle `ShieldsEngine` และ update `shields_active` property
 
 ### `handlers::tabs` (`browser-ui/src/handlers/tabs.rs`)
-- แต่ละ tab ใน `Vec<TabInfo>` ตรงกับ `WebView` ใน `WebViewManager.webviews[i]`
+- แต่ละ tab ใน `Vec<TabInfo>` ตรงกับ `ServoTab` ใน `ServoEngine.tabs[i]`
 - `close_tab` — ป้องกันปิดแท็บสุดท้าย (tabs.len() <= 1 → return)
-- `move_tab(from, to)` — ย้าย TabInfo array และ webviews array พร้อมกัน
+- `move_tab(from, to)` — ย้าย TabInfo array และ tabs array พร้อมกัน
 
-### `webview_manager::WebViewManager`
-- สร้าง WebView ด้วย `WebViewBuilder::new().build_as_child(winit_window)`
-- `navigation_handler` และ `document_title_changed_handler` ใช้ `slint::invoke_from_event_loop()` เพื่อ update UI
-- `update_bounds_for_active()` — คำนวณ bounds จาก physical size → logical size โดยหาร `scale_factor`
+### `servo_engine::ServoEngine`
+- จัดการ lifecycle ของ Servo และ WebViews รวมถึง input events
+- ดึงเฟรมภาพที่ render เสร็จแล้วส่งกลับไปแสดงผลบน Slint `AppWindow` ผ่าน `window.set_frame()`
+- ทำงานร่วมกับ `rendering_setup::setup_rendering` เพื่อ blit และ binding OpenGL texture (IOSurface บน macOS)
 
 ---
 
