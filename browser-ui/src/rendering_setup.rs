@@ -18,6 +18,12 @@ struct SharedState {
     needs_bind: bool,
     frame_published: bool,
     published_size: slint::PhysicalSize,
+    // Cached published frame to avoid re-running BorrowedOpenGLTextureBuilder +
+    // window.set_frame() on every paint when the underlying texture handle and
+    // size haven't changed. Slint property updates have non-trivial overhead, so
+    // skipping them when the frame is bit-identical to the last one matters.
+    published_texture_id: u32,
+    redraw_pending: bool,
     // Cached Slint GL state, captured on the first BeforeRendering tick.
     // Slint sets up the same context state every frame, so we avoid the
     // per-frame glGetIntegerv/glIsEnabled sync queries by querying once.
@@ -32,7 +38,7 @@ struct SharedState {
 
 thread_local! {
     static PUMP_TRIGGER: RefCell<Option<Box<dyn Fn()>>> = RefCell::new(None);
-    static PAINT_TRIGGER: RefCell<Option<Box<dyn Fn()>>> = RefCell::new(None);
+    static PAINT_TRIGGER: RefCell<Option<Box<dyn Fn() -> bool>>> = RefCell::new(None);
 
     // Performance profiling metrics
     static FRAME_COUNT: RefCell<usize> = RefCell::new(0);
@@ -50,13 +56,16 @@ pub fn trigger_pump() {
 }
 
 /// Trigger an on-demand paint of the active tab. Must be called from the main thread.
-/// Returns immediately if no dirty flag is set, so it's safe to call freely.
-pub fn trigger_paint() {
+/// Returns `true` if an actual paint happened (used by the heartbeat to decide
+/// whether to enter idle backoff). Returns immediately when no dirty flag is set.
+pub fn trigger_paint() -> bool {
     PAINT_TRIGGER.with(|trigger| {
         if let Some(ref f) = *trigger.borrow() {
-            f();
+            f()
+        } else {
+            false
         }
-    });
+    })
 }
 
 /// Profile and print the render metrics every second.
@@ -140,6 +149,8 @@ pub fn setup_rendering(
         needs_bind: false,
         frame_published: false,
         published_size: slint::PhysicalSize::new(0, 0),
+        published_texture_id: 0,
+        redraw_pending: false,
         prev_state_cached: false,
         prev_active_texture: 0,
         prev_tex_2d: 0,
@@ -152,6 +163,7 @@ pub fn setup_rendering(
     #[cfg(target_os = "macos")]
     {
         let shared_state_clone = shared_state.clone();
+        let engine_for_notifier = servo_engine.clone();
         let _ = window.window().set_rendering_notifier(move |state, graphics_api| {
             match state {
                 RenderingState::RenderingSetup => {
@@ -190,6 +202,39 @@ pub fn setup_rendering(
                 }
                 RenderingState::BeforeRendering => {
                     let mut state = shared_state_clone.borrow_mut();
+                    // Slint is about to render — any redraw request we made has
+                    // been picked up, so the next paint_trigger is allowed to
+                    // queue a fresh one.
+                    state.redraw_pending = false;
+
+                    // Refresh the IOSurface pointer + size from the currently
+                    // active tab's rendering context. This closes a use-after-
+                    // free window: gpu_context::resize() frees the old IOSurface
+                    // and allocates a new one, but state.iosurface only gets
+                    // updated when paint_trigger runs. If Slint renders between
+                    // those two events, we'd otherwise blit from a freed surface
+                    // and see garbage (or a checker pattern of stale tiles).
+                    if let Ok(engine) = engine_for_notifier.try_borrow() {
+                        if let Some(tab) = engine.get_active_tab() {
+                            if let Some(rc) = tab.rendering_context.as_ref() {
+                                let live_iosurface = rc.get_iosurface();
+                                let live_size = rc.size.get();
+                                let live_psize = slint::PhysicalSize::new(
+                                    live_size.width,
+                                    live_size.height,
+                                );
+                                if state.iosurface != live_iosurface || state.size != live_psize {
+                                    state.iosurface = live_iosurface;
+                                    state.size = live_psize;
+                                    // Force the rebind branch below to run since
+                                    // the old binding now references freed memory.
+                                    state.bound_iosurface = None;
+                                    state.needs_bind = true;
+                                }
+                            }
+                        }
+                    }
+
                     if state.needs_bind && state.size.width > 0 && state.size.height > 0 {
                         let Some(iosurface) = state.iosurface else {
                             state.needs_bind = false;
@@ -405,16 +450,16 @@ pub fn setup_rendering(
     #[cfg(target_os = "macos")]
     let use_gpu_bridge_for_paint = use_gpu_bridge;
 
-    let paint_trigger = Box::new(move || {
+    let paint_trigger: Box<dyn Fn() -> bool> = Box::new(move || -> bool {
         let engine = engine_clone.borrow();
 
         if !engine.has_active_webview() {
             let _ = crate::servo_engine::take_active_dirty();
-            return;
+            return false;
         }
 
         if !crate::servo_engine::take_active_dirty() {
-            return;
+            return false;
         }
 
         let start = Instant::now();
@@ -425,7 +470,7 @@ pub fn setup_rendering(
             if use_gpu_bridge_for_paint {
                 if let Some(tab) = engine.get_active_tab() {
                     let Some(rendering_context) = tab.rendering_context.as_ref() else {
-                        return;
+                        return false;
                     };
                     let iosurface = rendering_context.get_iosurface();
                     let size = rendering_context.size.get();
@@ -435,8 +480,13 @@ pub fn setup_rendering(
                     state.size = slint::PhysicalSize::new(size.width, size.height);
                     state.needs_bind = true;
 
+                    // Publish a new slint::Image only when something Slint would
+                    // care about actually changed (texture id, size, or the
+                    // backing IOSurface). Otherwise just request a redraw so
+                    // BeforeRendering re-blits the IOSurface into texture_2d.
                     let should_publish_frame = !state.frame_published
                         || state.published_size != state.size
+                        || state.published_texture_id != state.texture_2d_id
                         || state.bound_iosurface != iosurface;
 
                     if should_publish_frame
@@ -459,8 +509,14 @@ pub fn setup_rendering(
                         }
                         state.frame_published = true;
                         state.published_size = state.size;
-                    } else if let Some(window) = window_weak.upgrade() {
-                        window.window().request_redraw();
+                        state.published_texture_id = state.texture_2d_id;
+                        // set_frame implicitly schedules a redraw, so mark as pending.
+                        state.redraw_pending = true;
+                    } else if !state.redraw_pending {
+                        if let Some(window) = window_weak.upgrade() {
+                            window.window().request_redraw();
+                            state.redraw_pending = true;
+                        }
                     }
                 }
             } else if let Some(frame) = engine.get_active_frame() {
@@ -480,23 +536,46 @@ pub fn setup_rendering(
         }
 
         profile_frame(start.elapsed());
+        true
     });
 
     PAINT_TRIGGER.with(|t| {
         *t.borrow_mut() = Some(paint_trigger);
     });
 
-    // Heartbeat: every 16ms, pump Servo's event loop and paint if dirty.
-    // Both calls are cheap no-ops when there's no work, so this is essentially
-    // free when the user is idle but ensures input events that don't fire
-    // SlintWaker.wake() still get processed promptly.
+    // Adaptive heartbeat: ticks at 16ms baseline so input + frame delivery feels
+    // snappy (≈ 60Hz), but enters a "slow" mode when nothing has actually
+    // painted for ~20 ticks (~320ms). In slow mode we still tick every 16ms but
+    // only run pump/paint on every 8th tick (~128ms effective), cutting idle
+    // CPU and JS-error-processing rate substantially. The first dirty frame
+    // snaps us back to fast mode immediately.
     let heartbeat = slint::Timer::default();
+    let mut idle_ticks: u32 = 0;
+    let mut slow_skip: u32 = 0;
+    const IDLE_THRESHOLD: u32 = 20; // ticks of no-paint before slow mode
+    const SLOW_DIVISOR: u32 = 8;    // do real work 1 of every N ticks in slow mode
     heartbeat.start(
         slint::TimerMode::Repeated,
         std::time::Duration::from_millis(16),
         move || {
+            let in_slow_mode = idle_ticks >= IDLE_THRESHOLD;
+            if in_slow_mode {
+                slow_skip = slow_skip.saturating_add(1);
+                if slow_skip < SLOW_DIVISOR {
+                    return;
+                }
+                slow_skip = 0;
+            }
+
             trigger_pump();
-            trigger_paint();
+            let painted = trigger_paint();
+
+            if painted {
+                idle_ticks = 0;
+                slow_skip = 0;
+            } else {
+                idle_ticks = idle_ticks.saturating_add(1);
+            }
         },
     );
 

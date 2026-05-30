@@ -16,8 +16,16 @@ use slint::Model;
 
 #[tokio::main]
 async fn main() -> Result<(), slint::PlatformError> {
-    // Initialize logging
-    env_logger::init();
+    // Initialize logging. Servo's script::script_runtime + script::dom::globalscope
+    // log every unhandled JS promise rejection / DOM error at ERROR level. Modern
+    // web pages routinely trigger these because Servo lacks several Web APIs
+    // (IntersectionObserver, Element.animate, SVGAElement, …), and each stderr
+    // write blocks the main thread — silencing these two modules removes a
+    // significant source of micro-stutter without hiding real errors elsewhere.
+    env_logger::Builder::from_default_env()
+        .filter_module("script::script_runtime", log::LevelFilter::Off)
+        .filter_module("script::dom::globalscope", log::LevelFilter::Off)
+        .init();
 
     // 0. Configure macOS titlebar transparency and full-size content view
     #[cfg(target_os = "macos")]

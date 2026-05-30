@@ -10,8 +10,101 @@ pub mod input;
 pub mod rendering;
 pub mod waker;
 
-use servo::{RenderingContext, Servo, WebView as ServoWebView, WebViewBuilder};
+use servo::{
+    Preferences, RenderingContext, Servo, UserContentManager, UserScript,
+    WebView as ServoWebView, WebViewBuilder,
+};
 use std::rc::Rc;
+
+/// Chrome 131 desktop UA on macOS. Many sites server-side sniff UA and serve
+/// a stripped-down mobile/no-JS markup to unrecognized agents (Servo's default
+/// "Firefox 140 / Servo" string trips this). Pretending to be Chrome avoids
+/// that and lets us focus on real engine differences.
+const DESKTOP_UA: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) \
+                          AppleWebKit/537.36 (KHTML, like Gecko) \
+                          Chrome/131.0.0.0 Safari/537.36";
+
+/// Minimal JS shims for the Web APIs Servo is missing that modern sites rely
+/// on. These don't fully implement the APIs — they just satisfy the existence
+/// checks so first-paint code paths don't throw and degrade the layout:
+///   * IntersectionObserver: lazy-load triggers fire immediately, so `<img>`
+///     placeholders actually load.
+///   * Element.prototype.animate: returns a stub Animation that's "finished"
+///     so animation chains don't reject.
+///   * SVGAElement: empty class so `instanceof SVGAElement` checks return false
+///     instead of throwing ReferenceError.
+const POLYFILLS_JS: &str = r#"
+(function() {
+    if (typeof IntersectionObserver === 'undefined') {
+        globalThis.IntersectionObserver = class {
+            constructor(cb, opts) { this._cb = cb; this._opts = opts || {}; }
+            observe(target) {
+                Promise.resolve().then(() => {
+                    var rect = (target && target.getBoundingClientRect)
+                        ? target.getBoundingClientRect()
+                        : { top:0, left:0, right:0, bottom:0, width:0, height:0, x:0, y:0 };
+                    var entry = {
+                        target: target,
+                        isIntersecting: true,
+                        intersectionRatio: 1,
+                        boundingClientRect: rect,
+                        intersectionRect: rect,
+                        rootBounds: null,
+                        time: (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()
+                    };
+                    try { this._cb([entry], this); } catch (e) {}
+                });
+            }
+            unobserve() {}
+            disconnect() {}
+            takeRecords() { return []; }
+        };
+    }
+    if (typeof Element !== 'undefined' && !Element.prototype.animate) {
+        Element.prototype.animate = function(_keyframes, _options) {
+            var finished = Promise.resolve();
+            return {
+                play(){}, pause(){}, reverse(){}, cancel(){}, finish(){}, persist(){},
+                commitStyles(){}, updatePlaybackRate(){},
+                addEventListener(){}, removeEventListener(){}, dispatchEvent(){ return true; },
+                id: '', playState: 'finished', playbackRate: 1, startTime: 0, currentTime: 0,
+                timeline: null, effect: null,
+                finished: finished, ready: finished,
+                onfinish: null, oncancel: null, onremove: null
+            };
+        };
+    }
+    if (typeof SVGAElement === 'undefined') {
+        globalThis.SVGAElement = function SVGAElement() {};
+        globalThis.SVGAElement.prototype = Object.create(
+            (typeof SVGGraphicsElement !== 'undefined' ? SVGGraphicsElement : Object).prototype
+        );
+    }
+    if (typeof ResizeObserver === 'undefined') {
+        globalThis.ResizeObserver = class {
+            constructor(cb) { this._cb = cb; }
+            observe(target) {
+                Promise.resolve().then(() => {
+                    var rect = (target && target.getBoundingClientRect)
+                        ? target.getBoundingClientRect()
+                        : { top:0, left:0, right:0, bottom:0, width:0, height:0 };
+                    try {
+                        this._cb([{
+                            target: target,
+                            contentRect: rect,
+                            borderBoxSize: [{ inlineSize: rect.width, blockSize: rect.height }],
+                            contentBoxSize: [{ inlineSize: rect.width, blockSize: rect.height }],
+                            devicePixelContentBoxSize: [{ inlineSize: rect.width, blockSize: rect.height }]
+                        }], this);
+                    } catch (e) {}
+                });
+            }
+            unobserve() {}
+            disconnect() {}
+        };
+    }
+})();
+"#;
 
 use dpi::PhysicalSize;
 use i_slint_backend_winit::WinitWindowAccessor;
@@ -63,6 +156,9 @@ pub struct ServoTab {
 /// Manages the Servo instance and multiple WebView tabs
 pub struct ServoEngine {
     servo: Option<Servo>,
+    /// Shared across all tabs: holds the JS polyfill UserScript and forwards
+    /// it to each WebView so missing-API errors don't tank page layout.
+    user_content_manager: Option<Rc<UserContentManager>>,
     tabs: Vec<ServoTab>,
     active_index: usize,
     input_state: input::InputState,
@@ -76,6 +172,7 @@ impl ServoEngine {
     pub fn new() -> Self {
         ServoEngine {
             servo: None,
+            user_content_manager: None,
             tabs: Vec::new(),
             active_index: 0,
             input_state: input::InputState::new(),
@@ -117,17 +214,30 @@ impl ServoEngine {
         // Create the event loop waker
         let waker = Box::new(waker::SlintWaker::new());
 
-        // Build the Servo instance
+        // Customize Servo preferences before construction so the very first
+        // network request already carries our desktop UA.
+        let mut prefs = Preferences::default();
+        prefs.user_agent = DESKTOP_UA.to_string();
+
+        // Build the Servo instance with our preferences
         let servo_instance = servo::ServoBuilder::default()
+            .preferences(prefs)
             .event_loop_waker(waker)
             .build();
 
+        // Create the shared UserContentManager and register our Web-API
+        // polyfill once. Each WebViewBuilder will receive the same Rc.
+        let ucm = Rc::new(UserContentManager::new(&servo_instance));
+        ucm.add_script(Rc::new(UserScript::from(POLYFILLS_JS)));
+
         log::info!("[ServoEngine] Servo engine initialized successfully");
         self.servo = Some(servo_instance);
+        self.user_content_manager = Some(ucm);
     }
 
     fn create_webview_for_tab(
         servo: &Servo,
+        user_content_manager: Option<&Rc<UserContentManager>>,
         tab_index: usize,
         url: Url,
         window: &AppWindow,
@@ -170,14 +280,19 @@ impl ServoEngine {
                 .expect("Failed to create GpuSharedRenderingContext"),
         );
 
-        let webview = WebViewBuilder::new(
+        let mut builder = WebViewBuilder::new(
             servo,
             rendering_context.clone() as Rc<dyn servo::RenderingContext>,
         )
         .url(url)
         .hidpi_scale_factor(euclid::Scale::new(render_scale_factor))
-        .delegate(Rc::new(tab_delegate))
-        .build();
+        .delegate(Rc::new(tab_delegate));
+
+        if let Some(ucm) = user_content_manager {
+            builder = builder.user_content_manager(Rc::clone(ucm));
+        }
+
+        let webview = builder.build();
 
         webview.show();
         (webview, rendering_context)
@@ -224,8 +339,13 @@ impl ServoEngine {
             }
         };
 
-        let (webview, rendering_context) =
-            Self::create_webview_for_tab(servo, tab_index, url.clone(), window);
+        let (webview, rendering_context) = Self::create_webview_for_tab(
+            servo,
+            self.user_content_manager.as_ref(),
+            tab_index,
+            url.clone(),
+            window,
+        );
 
         log::info!(
             "[ServoEngine] Created WebView for tab {} → {}",
@@ -274,7 +394,13 @@ impl ServoEngine {
             return;
         };
 
-        let Some(tab) = self.tabs.get_mut(self.active_index) else {
+        // Snapshot the UCM Rc before borrowing self.tabs mutably below; both
+        // fields are separate so the borrow checker is happy, but the explicit
+        // local makes the lifetime obvious.
+        let ucm = self.user_content_manager.clone();
+        let active_index = self.active_index;
+
+        let Some(tab) = self.tabs.get_mut(active_index) else {
             return;
         };
 
@@ -282,8 +408,13 @@ impl ServoEngine {
         if let Some(webview) = &tab.webview {
             webview.load(url);
         } else {
-            let (webview, rendering_context) =
-                Self::create_webview_for_tab(servo, self.active_index, url, window);
+            let (webview, rendering_context) = Self::create_webview_for_tab(
+                servo,
+                ucm.as_ref(),
+                active_index,
+                url,
+                window,
+            );
             tab.webview = Some(webview);
             tab.rendering_context = Some(rendering_context);
         }
