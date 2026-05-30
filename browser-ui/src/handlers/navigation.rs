@@ -28,7 +28,7 @@ fn clean_url_input(input: &str) -> String {
         format!("https://{}", trimmed)
     } else {
         let encoded: String = url::form_urlencoded::byte_serialize(trimmed.as_bytes()).collect();
-        format!("https://www.google.com/search?q={}", encoded)
+        format!("https://duckduckgo.com/?q={}", encoded)
     }
 }
 
@@ -71,7 +71,7 @@ pub fn setup(
         update_active_tab(&window, &target_url, &title);
 
         // Navigate using Servo Engine
-        engine_clone.borrow().navigate(&target_url);
+        engine_clone.borrow_mut().navigate(&target_url, &window);
     });
 
     let engine_clone = servo_engine.clone();

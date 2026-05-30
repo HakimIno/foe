@@ -30,15 +30,13 @@ export component AppWindow inherits Window {
     callback double_click_titlebar();
 
     // Public UI State Bindings
-    in-out property <string> current-url: "https://servo.org";
-    in-out property <string> current-title: "Servo Project";
+    in-out property <string> current-url: "about:newtab";
+    in-out property <string> current-title: "Google";
     in-out property <image> frame;
     in-out property <bool> shields-active: true;
     in-out property <int> blocked-count: 42;
     in-out property <[TabInfo]> tabs: [
-        { title: "Servo Engine", url: "https://servo.org", active: true, is_pinned: false, site_type: "servo" },
-        { title: "Brave Privacy", url: "https://brave.com", active: false, is_pinned: false, site_type: "brave" },
-        { title: "Arc Browser", url: "https://arc.net", active: false, is_pinned: false, site_type: "arc" }
+        { title: "Google", url: "about:newtab", active: true, is_pinned: false, site_type: "google" }
     ];
     in-out property <[DownloadItem]> downloads: [
         { name: "video-stream-1080p.mp4", progress: 0.72, status: "Downloading" }
@@ -103,6 +101,7 @@ export component AppWindow inherits Window {
                 current-url: root.current-url;
                 current-title: root.current-title;
                 frame: root.frame;
+                search_submitted(query) => { root.navigate_to(query); }
             }
         }
     }

@@ -3,17 +3,19 @@
 // Translates winit window events (mouse, keyboard, scroll) into
 // Servo's input event format for forwarding to WebView::notify_input_event()
 
-use i_slint_backend_winit::winit::event::{WindowEvent, MouseButton, ElementState};
-use i_slint_backend_winit::winit::keyboard::{Key as WinitKey, PhysicalKey, KeyLocation};
-use std::str::FromStr;
 use euclid::Point2D;
+use i_slint_backend_winit::winit::event::{ElementState, MouseButton, WindowEvent};
+use i_slint_backend_winit::winit::keyboard::{Key as WinitKey, KeyLocation, PhysicalKey};
+use std::str::FromStr;
 
 /// Current mouse and modifiers state tracker
 pub struct InputState {
     pub cursor_x: f64,
     pub cursor_y: f64,
-    /// HiDPI scale factor — updated from winit on every event
-    pub scale_factor: f64,
+    /// Native window scale factor from winit.
+    pub window_scale_factor: f64,
+    /// Internal Servo render scale factor.
+    pub render_scale_factor: f64,
     /// Active modifiers state
     pub modifiers: keyboard_types::Modifiers,
 }
@@ -26,14 +28,24 @@ impl InputState {
         InputState {
             cursor_x: 0.0,
             cursor_y: 0.0,
-            scale_factor: 1.0,
+            window_scale_factor: 1.0,
+            render_scale_factor: 1.0,
             modifiers: keyboard_types::Modifiers::empty(),
         }
     }
 
+    pub fn set_scale_factors(&mut self, window_scale_factor: f64, render_scale_factor: f64) {
+        self.window_scale_factor = window_scale_factor.max(0.1);
+        self.render_scale_factor = render_scale_factor.max(0.1);
+    }
+
     /// Chrome height in physical pixels — what winit cursor positions use
     fn chrome_height_physical(&self) -> f64 {
-        CHROME_HEIGHT_LOGICAL * self.scale_factor
+        CHROME_HEIGHT_LOGICAL * self.window_scale_factor
+    }
+
+    fn physical_to_render_scale(&self) -> f64 {
+        self.render_scale_factor / self.window_scale_factor
     }
 
     /// Check if cursor is in the webview area (physical coordinates)
@@ -43,7 +55,11 @@ impl InputState {
 
     /// Get cursor position relative to webview origin (physical pixels)
     pub fn webview_relative_position(&self) -> (f64, f64) {
-        (self.cursor_x, self.cursor_y - self.chrome_height_physical())
+        let scale = self.physical_to_render_scale();
+        (
+            self.cursor_x * scale,
+            (self.cursor_y - self.chrome_height_physical()) * scale,
+        )
     }
 }
 
@@ -77,14 +93,18 @@ pub fn translate_event(event: &WindowEvent, state: &mut InputState) -> Option<se
             if state.is_in_webview_area() {
                 let (x, y) = state.webview_relative_position();
                 Some(servo::InputEvent::MouseMove(servo::MouseMoveEvent::new(
-                    servo::WebViewPoint::Device(Point2D::new(x as f32, y as f32))
+                    servo::WebViewPoint::Device(Point2D::new(x as f32, y as f32)),
                 )))
             } else {
                 None
             }
         }
 
-        WindowEvent::MouseInput { state: btn_state, button, .. } => {
+        WindowEvent::MouseInput {
+            state: btn_state,
+            button,
+            ..
+        } => {
             if !state.is_in_webview_area() {
                 return None;
             }
@@ -105,9 +125,9 @@ pub fn translate_event(event: &WindowEvent, state: &mut InputState) -> Option<se
 
             let (x, y) = state.webview_relative_position();
             let point = servo::WebViewPoint::Device(Point2D::new(x as f32, y as f32));
-            Some(servo::InputEvent::MouseButton(servo::MouseButtonEvent::new(
-                action, foe_btn, point
-            )))
+            Some(servo::InputEvent::MouseButton(
+                servo::MouseButtonEvent::new(action, foe_btn, point),
+            ))
         }
 
         WindowEvent::MouseWheel { delta, .. } => {
@@ -117,10 +137,11 @@ pub fn translate_event(event: &WindowEvent, state: &mut InputState) -> Option<se
 
             let (dx, dy) = match delta {
                 i_slint_backend_winit::winit::event::MouseScrollDelta::LineDelta(x, y) => {
-                    (*x as f64 * 40.0, *y as f64 * 40.0) // Convert lines to pixels
+                    (*x as f64 * 40.0, *y as f64 * 40.0)
                 }
                 i_slint_backend_winit::winit::event::MouseScrollDelta::PixelDelta(pos) => {
-                    (pos.x, pos.y)
+                    let scale = state.physical_to_render_scale();
+                    (pos.x * scale, pos.y * scale)
                 }
             };
 
@@ -133,11 +154,15 @@ pub fn translate_event(event: &WindowEvent, state: &mut InputState) -> Option<se
                 mode: servo::WheelMode::DeltaPixel,
             };
             Some(servo::InputEvent::Wheel(servo::WheelEvent::new(
-                wheel_delta, point
+                wheel_delta,
+                point,
             )))
         }
 
-        WindowEvent::KeyboardInput { event: winit_key_event, .. } => {
+        WindowEvent::KeyboardInput {
+            event: winit_key_event,
+            ..
+        } => {
             let key_state = match winit_key_event.state {
                 ElementState::Pressed => keyboard_types::KeyState::Down,
                 ElementState::Released => keyboard_types::KeyState::Up,
@@ -159,7 +184,8 @@ pub fn translate_event(event: &WindowEvent, state: &mut InputState) -> Option<se
             let code = match winit_key_event.physical_key {
                 PhysicalKey::Code(key_code) => {
                     let winit_str = format!("{:?}", key_code);
-                    keyboard_types::Code::from_str(&winit_str).unwrap_or(keyboard_types::Code::Unidentified)
+                    keyboard_types::Code::from_str(&winit_str)
+                        .unwrap_or(keyboard_types::Code::Unidentified)
                 }
                 PhysicalKey::Unidentified(_) => keyboard_types::Code::Unidentified,
             };

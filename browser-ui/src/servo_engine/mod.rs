@@ -4,29 +4,51 @@
 // It replaces the previous wry/WebView-based approach with Servo's native
 // rendering pipeline.
 
-pub mod waker;
 pub mod delegate;
-pub mod rendering;
-pub mod input;
 pub mod gpu_context;
+pub mod input;
+pub mod rendering;
+pub mod waker;
 
-use servo::{Servo, WebView as ServoWebView, WebViewBuilder, RenderingContext};
+use servo::{RenderingContext, Servo, WebView as ServoWebView, WebViewBuilder};
 use std::rc::Rc;
-use std::cell::Cell;
-use url::Url;
+
 use dpi::PhysicalSize;
 use i_slint_backend_winit::WinitWindowAccessor;
+use url::Url;
 
-thread_local! {
-    static ACTIVE_WEBVIEW_DIRTY: Cell<bool> = Cell::new(true);
-}
+use std::sync::atomic::{AtomicBool, Ordering};
+
+static ACTIVE_WEBVIEW_DIRTY: AtomicBool = AtomicBool::new(true);
 
 pub fn set_active_dirty(dirty: bool) {
-    ACTIVE_WEBVIEW_DIRTY.with(|c| c.set(dirty));
+    ACTIVE_WEBVIEW_DIRTY.store(dirty, Ordering::SeqCst);
 }
 
 pub fn take_active_dirty() -> bool {
-    ACTIVE_WEBVIEW_DIRTY.with(|c| c.replace(false))
+    ACTIVE_WEBVIEW_DIRTY.swap(false, Ordering::SeqCst)
+}
+
+fn is_native_url(url: &str) -> bool {
+    url == "about:newtab" || url == "about:blank" || url.is_empty()
+}
+
+fn render_scale_for_window(window_scale: f32) -> f32 {
+    if let Ok(value) = std::env::var("FOE_RENDER_SCALE") {
+        if let Ok(scale) = value.parse::<f32>() {
+            return scale.clamp(0.5, window_scale.max(0.5));
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        1.0_f32.min(window_scale.max(0.5))
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        window_scale.max(0.5)
+    }
 }
 
 use crate::AppWindow;
@@ -34,8 +56,8 @@ use slint::ComponentHandle;
 
 /// A tab representation for the Servo engine
 pub struct ServoTab {
-    pub webview: ServoWebView,
-    pub rendering_context: Rc<gpu_context::GpuSharedRenderingContext>,
+    pub webview: Option<ServoWebView>,
+    pub rendering_context: Option<Rc<gpu_context::GpuSharedRenderingContext>>,
     pub url: String,
     pub title: String,
 }
@@ -49,6 +71,7 @@ pub struct ServoEngine {
     input_state: input::InputState,
     /// Current HiDPI scale factor (e.g. 2.0 on Retina displays)
     scale_factor: f32,
+    render_scale_factor: f32,
 }
 
 impl ServoEngine {
@@ -60,18 +83,31 @@ impl ServoEngine {
             active_index: 0,
             input_state: input::InputState::new(),
             scale_factor: 1.0,
+            render_scale_factor: 1.0,
         }
     }
 
     /// Update the HiDPI scale factor and propagate to all tabs
     pub fn update_scale_factor(&mut self, new_scale: f32) {
-        if (self.scale_factor - new_scale).abs() < 0.001 {
+        let new_render_scale = render_scale_for_window(new_scale);
+        if (self.scale_factor - new_scale).abs() < 0.001
+            && (self.render_scale_factor - new_render_scale).abs() < 0.001
+        {
             return;
         }
         self.scale_factor = new_scale;
-        log::info!("[ServoEngine] Scale factor → {:.2}", new_scale);
+        self.render_scale_factor = new_render_scale;
+        self.input_state
+            .set_scale_factors(new_scale as f64, new_render_scale as f64);
+        log::info!(
+            "[ServoEngine] Scale factor → {:.2}, render scale → {:.2}",
+            new_scale,
+            new_render_scale
+        );
         for tab in &self.tabs {
-            tab.webview.set_hidpi_scale_factor(euclid::Scale::new(new_scale));
+            if let Some(webview) = &tab.webview {
+                webview.set_hidpi_scale_factor(euclid::Scale::new(new_render_scale));
+            }
         }
         set_active_dirty(true);
     }
@@ -93,65 +129,108 @@ impl ServoEngine {
         self.servo = Some(servo_instance);
     }
 
-    /// Add a new tab and create a Servo WebView for it
+    fn create_webview_for_tab(
+        servo: &Servo,
+        tab_index: usize,
+        url: Url,
+        window: &AppWindow,
+    ) -> (ServoWebView, Rc<gpu_context::GpuSharedRenderingContext>) {
+        let window_weak = window.as_weak();
+        let tab_delegate = delegate::FoeWebViewDelegate::new(window_weak, tab_index);
+
+        let window_scale_factor = window
+            .window()
+            .with_winit_window(|w| w.scale_factor() as f32)
+            .unwrap_or(1.0);
+        let render_scale_factor = render_scale_for_window(window_scale_factor);
+
+        let logical_size = window.window().size();
+        let chrome_height_render = (76.0 * render_scale_factor) as u32;
+        let init_w = ((logical_size.width as f32) * render_scale_factor) as u32;
+        let init_h = (((logical_size.height as f32) * render_scale_factor) as u32)
+            .saturating_sub(chrome_height_render)
+            .max(1);
+
+        log::info!(
+            "[ServoEngine] Tab {} render size: {}x{} (window scale={:.1}, render scale={:.1})",
+            tab_index,
+            init_w,
+            init_h,
+            window_scale_factor,
+            render_scale_factor
+        );
+
+        let size = PhysicalSize::new(init_w.max(1), init_h.max(1));
+        let rendering_context = Rc::new(
+            gpu_context::GpuSharedRenderingContext::new(size)
+                .expect("Failed to create GpuSharedRenderingContext"),
+        );
+
+        let webview = WebViewBuilder::new(
+            servo,
+            rendering_context.clone() as Rc<dyn servo::RenderingContext>,
+        )
+        .url(url)
+        .hidpi_scale_factor(euclid::Scale::new(render_scale_factor))
+        .delegate(Rc::new(tab_delegate))
+        .build();
+
+        webview.show();
+        (webview, rendering_context)
+    }
+
+    /// Add a new tab. Native tabs do not allocate a Servo WebView until navigation.
     pub fn add_tab(&mut self, url_str: &str, window: &AppWindow) {
         let Some(ref servo) = self.servo else {
             log::error!("[ServoEngine] Cannot add tab — Servo not initialized");
             return;
         };
 
-        let url = match Url::parse(url_str) {
-            Ok(u) => u,
-            Err(_) => {
-                log::warn!("[ServoEngine] Invalid URL: {}, using about:blank", url_str);
-                Url::parse("about:blank").unwrap()
-            }
-        };
-
-        // Create WebView delegate for this tab
-        let tab_index = self.tabs.len();
-        let window_weak = window.as_weak();
-        let tab_delegate = delegate::FoeWebViewDelegate::new(window_weak, tab_index);
-
-        // Get scale factor from the winit window (for HiDPI/Retina support)
         let scale_factor = window
             .window()
             .with_winit_window(|w| w.scale_factor() as f32)
             .unwrap_or(1.0);
+        let render_scale_factor = render_scale_for_window(scale_factor);
+        self.input_state
+            .set_scale_factors(scale_factor as f64, render_scale_factor as f64);
 
-        // Use actual window size minus chrome height (TabBar 38 + Navbar 38 = 76 logical → physical)
-        let logical_size = window.window().size();
-        let chrome_height_physical = (76.0 * scale_factor) as u32;
-        let init_w = ((logical_size.width as f32) * scale_factor) as u32;
-        let init_h = (((logical_size.height as f32) * scale_factor) as u32)
-            .saturating_sub(chrome_height_physical)
-            .max(1);
+        let tab_index = self.tabs.len();
+        if is_native_url(url_str) {
+            log::info!("[ServoEngine] Created native tab {} → {}", tab_index, url_str);
+            self.tabs.push(ServoTab {
+                webview: None,
+                rendering_context: None,
+                url: url_str.to_string(),
+                title: "Google".to_string(),
+            });
+            return;
+        }
+
+        let url = match Url::parse(url_str) {
+            Ok(u) => u,
+            Err(_) => {
+                log::warn!("[ServoEngine] Invalid URL: {}, using native new tab", url_str);
+                self.tabs.push(ServoTab {
+                    webview: None,
+                    rendering_context: None,
+                    url: "about:newtab".to_string(),
+                    title: "Google".to_string(),
+                });
+                return;
+            }
+        };
+
+        let (webview, rendering_context) =
+            Self::create_webview_for_tab(servo, tab_index, url.clone(), window);
 
         log::info!(
-            "[ServoEngine] Tab {} initial size: {}x{} (scale={:.1})",
-            tab_index, init_w, init_h, scale_factor
+            "[ServoEngine] Created WebView for tab {} → {}",
+            tab_index,
+            url_str
         );
-
-        let size = PhysicalSize::new(init_w.max(1), init_h.max(1));
-        let rendering_context = Rc::new(
-            gpu_context::GpuSharedRenderingContext::new(size)
-                .expect("Failed to create GpuSharedRenderingContext")
-        );
-
-        // Build the WebView with correct HiDPI scale
-        let webview = WebViewBuilder::new(servo, rendering_context.clone() as Rc<dyn servo::RenderingContext>)
-            .url(url.clone())
-            .hidpi_scale_factor(euclid::Scale::new(scale_factor))
-            .delegate(Rc::new(tab_delegate))
-            .build();
-
-        // Make the WebView visible so Servo includes it in the render display list
-        webview.show();
-
-        log::info!("[ServoEngine] Created WebView for tab {} → {}", tab_index, url_str);
         self.tabs.push(ServoTab {
-            webview,
-            rendering_context,
+            webview: Some(webview),
+            rendering_context: Some(rendering_context),
             url: url_str.to_string(),
             title: "New Tab".to_string(),
         });
@@ -182,37 +261,59 @@ impl ServoEngine {
     }
 
     /// Navigate the active tab to a URL
-    pub fn navigate(&self, url_str: &str) {
-        if let Some(tab) = self.tabs.get(self.active_index) {
-            if let Ok(url) = Url::parse(url_str) {
-                log::info!("[ServoEngine] Navigating to: {}", url_str);
-                set_active_dirty(true);
-                tab.webview.load(url);
-            }
+    pub fn navigate(&mut self, url_str: &str, window: &AppWindow) {
+        let Ok(url) = Url::parse(url_str) else {
+            return;
+        };
+
+        let Some(ref servo) = self.servo else {
+            return;
+        };
+
+        let Some(tab) = self.tabs.get_mut(self.active_index) else {
+            return;
+        };
+
+        log::info!("[ServoEngine] Navigating to: {}", url_str);
+        if let Some(webview) = &tab.webview {
+            webview.load(url);
+        } else {
+            let (webview, rendering_context) =
+                Self::create_webview_for_tab(servo, self.active_index, url, window);
+            tab.webview = Some(webview);
+            tab.rendering_context = Some(rendering_context);
         }
+        tab.url = url_str.to_string();
+        set_active_dirty(true);
     }
 
     /// Go back in history for the active tab
     pub fn go_back(&self) {
         if let Some(tab) = self.tabs.get(self.active_index) {
-            set_active_dirty(true);
-            tab.webview.go_back(1);
+            if let Some(webview) = &tab.webview {
+                set_active_dirty(true);
+                webview.go_back(1);
+            }
         }
     }
 
     /// Go forward in history for the active tab
     pub fn go_forward(&self) {
         if let Some(tab) = self.tabs.get(self.active_index) {
-            set_active_dirty(true);
-            tab.webview.go_forward(1);
+            if let Some(webview) = &tab.webview {
+                set_active_dirty(true);
+                webview.go_forward(1);
+            }
         }
     }
 
     /// Reload the active tab
     pub fn reload(&self) {
         if let Some(tab) = self.tabs.get(self.active_index) {
-            set_active_dirty(true);
-            tab.webview.reload();
+            if let Some(webview) = &tab.webview {
+                set_active_dirty(true);
+                webview.reload();
+            }
         }
     }
 
@@ -241,7 +342,13 @@ impl ServoEngine {
 
     /// Get the active tab's WebView (if any)
     pub fn get_active_webview(&self) -> Option<&ServoWebView> {
-        self.tabs.get(self.active_index).map(|t| &t.webview)
+        self.tabs
+            .get(self.active_index)
+            .and_then(|t| t.webview.as_ref())
+    }
+
+    pub fn has_active_webview(&self) -> bool {
+        self.get_active_webview().is_some()
     }
 
     /// Get the active index
@@ -264,7 +371,9 @@ impl ServoEngine {
     /// Paint the active webview
     pub fn paint_active(&self) {
         if let Some(tab) = self.tabs.get(self.active_index) {
-            tab.webview.paint();
+            if let Some(webview) = &tab.webview {
+                webview.paint();
+            }
         }
     }
 
@@ -275,16 +384,16 @@ impl ServoEngine {
     /// context. Texture IDs are not portable across contexts without IOSurface.
     pub fn get_active_frame(&self) -> Option<slint::Image> {
         self.tabs.get(self.active_index).and_then(|tab| {
-            let size = tab.rendering_context.size();
+            let rendering_context = tab.rendering_context.as_ref()?;
+            let size = rendering_context.size();
             let w = size.width;
             let h = size.height;
             if w == 0 || h == 0 {
                 return None;
             }
-            let rect = servo::DeviceIntRect::from_size(
-                servo::DeviceIntSize::new(w as i32, h as i32),
-            );
-            if let Some(image_buffer) = tab.rendering_context.read_to_image(rect) {
+            let rect =
+                servo::DeviceIntRect::from_size(servo::DeviceIntSize::new(w as i32, h as i32));
+            if let Some(image_buffer) = rendering_context.read_to_image(rect) {
                 let (iw, ih) = image_buffer.dimensions();
                 let pixel_buffer = slint::SharedPixelBuffer::<slint::Rgba8Pixel>::clone_from_slice(
                     image_buffer.as_raw(),
@@ -301,9 +410,11 @@ impl ServoEngine {
     /// Resize the active tab
     pub fn resize_active(&self, width: u32, height: u32) {
         if let Some(tab) = self.tabs.get(self.active_index) {
-            let size = PhysicalSize::new(width, height);
-            set_active_dirty(true);
-            tab.webview.resize(size);
+            if let Some(webview) = &tab.webview {
+                let size = PhysicalSize::new(width, height);
+                set_active_dirty(true);
+                webview.resize(size);
+            }
         }
     }
 
@@ -316,27 +427,39 @@ impl ServoEngine {
     ) {
         use i_slint_backend_winit::winit::event::WindowEvent;
 
-        // Keep input state scale in sync — cursor positions from winit are physical pixels
-        self.input_state.scale_factor = scale as f64;
+        let render_scale = render_scale_for_window(scale);
+        self.input_state
+            .set_scale_factors(scale as f64, render_scale as f64);
 
         match event {
             WindowEvent::Resized(physical_size) => {
-                log::debug!("[ServoEngine] Window resized: {:?} (scale={:.2})", physical_size, scale);
+                log::debug!(
+                    "[ServoEngine] Window resized: {:?} (scale={:.2})",
+                    physical_size,
+                    scale
+                );
                 self.update_scale_factor(scale);
 
-                let width = physical_size.width;
-                // 76 logical px chrome (TabBar 38px + Navbar 38px) → physical
-                let chrome_h = (76.0 * scale) as u32;
-                let height = physical_size.height.saturating_sub(chrome_h).max(1);
+                let logical_width = physical_size.width as f32 / scale.max(0.1);
+                let logical_height = physical_size.height as f32 / scale.max(0.1);
+                let width = (logical_width * render_scale).round().max(1.0) as u32;
+                let height = ((logical_height - 76.0).max(1.0) * render_scale)
+                    .round()
+                    .max(1.0) as u32;
 
                 if let Some(tab) = self.tabs.get(self.active_index) {
-                    tab.webview.set_hidpi_scale_factor(euclid::Scale::new(scale));
+                    if let Some(webview) = &tab.webview {
+                        webview.set_hidpi_scale_factor(euclid::Scale::new(render_scale));
+                    }
                 }
                 self.resize_active(width, height);
             }
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
-                self.update_scale_factor(*scale_factor as f32);
-                self.input_state.scale_factor = *scale_factor;
+                let scale = *scale_factor as f32;
+                let render_scale = render_scale_for_window(scale);
+                self.update_scale_factor(scale);
+                self.input_state
+                    .set_scale_factors(*scale_factor, render_scale as f64);
             }
             _ => {
                 if let Some(servo_event) = input::translate_event(event, &mut self.input_state) {

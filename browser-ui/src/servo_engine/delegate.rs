@@ -6,9 +6,9 @@
 // - The URL changes (navigation)
 // - History state changes (back/forward availability)
 
-use servo::{WebView as ServoWebView, WebViewDelegate};
-use slint::{Weak, ComponentHandle, Model};
 use crate::AppWindow;
+use servo::{WebView as ServoWebView, WebViewDelegate};
+use slint::{ComponentHandle, Model, Weak};
 
 /// Delegate that receives events from a Servo WebView and updates the Slint UI
 pub struct FoeWebViewDelegate {
@@ -29,7 +29,6 @@ impl WebViewDelegate for FoeWebViewDelegate {
     /// Called when Servo has a new frame ready to display
     fn notify_new_frame_ready(&self, _webview: ServoWebView) {
         log::trace!("[Delegate] New frame ready for tab {}", self.tab_index);
-
         let w_weak = self.window_weak.clone();
         let _ = slint::invoke_from_event_loop(move || {
             crate::servo_engine::set_active_dirty(true);
@@ -42,7 +41,11 @@ impl WebViewDelegate for FoeWebViewDelegate {
     /// Called when the page title changes
     fn notify_page_title_changed(&self, _webview: ServoWebView, title: Option<String>) {
         let new_title = title.unwrap_or_else(|| "Untitled".to_string());
-        log::info!("[Delegate] Title changed for tab {}: {}", self.tab_index, new_title);
+        log::info!(
+            "[Delegate] Title changed for tab {}: {}",
+            self.tab_index,
+            new_title
+        );
 
         let w_weak = self.window_weak.clone();
         let title_clone = new_title.clone();
@@ -65,7 +68,11 @@ impl WebViewDelegate for FoeWebViewDelegate {
     /// Called when the URL changes (e.g., after navigation or redirect)
     fn notify_url_changed(&self, _webview: ServoWebView, url: url::Url) {
         let url_str = url.to_string();
-        log::info!("[Delegate] URL changed for tab {}: {}", self.tab_index, url_str);
+        log::info!(
+            "[Delegate] URL changed for tab {}: {}",
+            self.tab_index,
+            url_str
+        );
 
         let w_weak = self.window_weak.clone();
         let url_clone = url_str.clone();

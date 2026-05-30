@@ -46,17 +46,17 @@ fn setup_new_tab(window: &AppWindow, servo_engine: Rc<RefCell<ServoEngine>>) {
             tab.active = false;
         }
 
-        let default_url = "https://google.com";
+        let default_url = "about:newtab";
         tabs.push(TabInfo {
-            title: "New Tab".into(),
+            title: "Google".into(),
             url: default_url.into(),
             active: true,
             is_pinned: false,
-            site_type: crate::handlers::get_site_type(default_url).into(),
+            site_type: "google".into(),
         });
 
         window.set_current_url(default_url.into());
-        window.set_current_title("New Tab".into());
+        window.set_current_title("Google".into());
         window.set_tabs(ModelRc::new(VecModel::from(tabs)));
 
         // Add Servo WebView for new tab and activate it

@@ -5,13 +5,7 @@ pub mod command_bar;
 
 pub fn get_site_type(url: &str) -> String {
     let lower = url.to_lowercase();
-    if lower.contains("servo.org") {
-        "servo".into()
-    } else if lower.contains("brave.com") {
-        "brave".into()
-    } else if lower.contains("arc.net") {
-        "arc".into()
-    } else if lower.contains("google.com") || lower.contains("google") {
+    if lower.contains("google.com") || lower.contains("google") || lower == "about:newtab" {
         "google".into()
     } else {
         "generic".into()

@@ -1,11 +1,11 @@
-use servo::{RenderingContext, DeviceIntRect};
+use dpi::PhysicalSize;
+use gleam::gl::{self, Gl};
+use image::RgbaImage;
+use servo::{DeviceIntRect, RenderingContext};
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::sync::Arc;
-use std::cell::{Cell, RefCell};
-use surfman::{Connection, Adapter, Device, Context, Surface, SurfaceTexture};
-use dpi::PhysicalSize;
-use image::RgbaImage;
-use gleam::gl::{self, Gl};
+use surfman::{Adapter, Connection, Context, Device, Surface, SurfaceTexture};
 
 #[cfg(target_os = "macos")]
 pub mod macos_iosurface {
@@ -92,16 +92,32 @@ pub mod macos_iosurface {
         );
 
         let w_val = width as i32;
-        let val_width = CFNumberCreate(ptr::null(), K_CF_NUMBER_S_INT32_TYPE, &w_val as *const _ as *const _);
+        let val_width = CFNumberCreate(
+            ptr::null(),
+            K_CF_NUMBER_S_INT32_TYPE,
+            &w_val as *const _ as *const _,
+        );
 
         let h_val = height as i32;
-        let val_height = CFNumberCreate(ptr::null(), K_CF_NUMBER_S_INT32_TYPE, &h_val as *const _ as *const _);
+        let val_height = CFNumberCreate(
+            ptr::null(),
+            K_CF_NUMBER_S_INT32_TYPE,
+            &h_val as *const _ as *const _,
+        );
 
         let bpe_val = 4i32;
-        let val_bytes_per_elem = CFNumberCreate(ptr::null(), K_CF_NUMBER_S_INT32_TYPE, &bpe_val as *const _ as *const _);
+        let val_bytes_per_elem = CFNumberCreate(
+            ptr::null(),
+            K_CF_NUMBER_S_INT32_TYPE,
+            &bpe_val as *const _ as *const _,
+        );
 
         let fmt_val = 1111970369i32; // 'BGRA' FourCC
-        let val_pixel_format = CFNumberCreate(ptr::null(), K_CF_NUMBER_S_INT32_TYPE, &fmt_val as *const _ as *const _);
+        let val_pixel_format = CFNumberCreate(
+            ptr::null(),
+            K_CF_NUMBER_S_INT32_TYPE,
+            &fmt_val as *const _ as *const _,
+        );
 
         let keys = [key_width, key_height, key_bytes_per_elem, key_pixel_format];
         let values = [val_width, val_height, val_bytes_per_elem, val_pixel_format];
@@ -117,8 +133,16 @@ pub mod macos_iosurface {
 
         if dict.is_null() {
             log::error!("[IOSurface] Failed to create CFDictionary properties");
-            for &k in &keys { if !k.is_null() { CFRelease(k); } }
-            for &v in &values { if !v.is_null() { CFRelease(v); } }
+            for &k in &keys {
+                if !k.is_null() {
+                    CFRelease(k);
+                }
+            }
+            for &v in &values {
+                if !v.is_null() {
+                    CFRelease(v);
+                }
+            }
             return None;
         }
 
@@ -126,8 +150,12 @@ pub mod macos_iosurface {
 
         // Clean up CF objects
         CFRelease(dict);
-        for &k in &keys { CFRelease(k); }
-        for &v in &values { CFRelease(v); }
+        for &k in &keys {
+            CFRelease(k);
+        }
+        for &v in &values {
+            CFRelease(v);
+        }
 
         if iosurface.is_null() {
             log::error!("[IOSurface] IOSurfaceCreate returned null");
@@ -171,7 +199,9 @@ impl CustomFramebuffer {
 
             let ctx = cgl::CGLGetCurrentContext();
             if ctx.is_null() {
-                log::error!("[GpuCtx] Current CGL context is null during CustomFramebuffer creation");
+                log::error!(
+                    "[GpuCtx] Current CGL context is null during CustomFramebuffer creation"
+                );
             }
 
             // CGLTexImageIOSurface2D expects GL_TEXTURE_RECTANGLE, RGBA internal format, BGRA format, and UNSIGNED_INT_8_8_8_8_REV type.
@@ -225,7 +255,12 @@ impl CustomFramebuffer {
         if status != gl::FRAMEBUFFER_COMPLETE {
             log::error!("[GpuCtx] FBO {} not complete: 0x{:x}", fbo, status);
         } else {
-            log::debug!("[GpuCtx] Created FBO {} ({}x{})", fbo, size.width, size.height);
+            log::debug!(
+                "[GpuCtx] Created FBO {} ({}x{})",
+                fbo,
+                size.width,
+                size.height
+            );
         }
 
         Self {
@@ -239,11 +274,13 @@ impl CustomFramebuffer {
     }
 
     fn bind(&self) {
-        self.gl.bind_framebuffer(gl::FRAMEBUFFER, self.framebuffer_id);
+        self.gl
+            .bind_framebuffer(gl::FRAMEBUFFER, self.framebuffer_id);
     }
 
     fn read_to_image(&self, source_rectangle: DeviceIntRect) -> Option<RgbaImage> {
-        self.gl.bind_framebuffer(gl::FRAMEBUFFER, self.framebuffer_id);
+        self.gl
+            .bind_framebuffer(gl::FRAMEBUFFER, self.framebuffer_id);
         self.gl.bind_vertex_array(0);
         self.gl.finish();
 
@@ -256,7 +293,11 @@ impl CustomFramebuffer {
 
         let gl_err = self.gl.get_error();
         if gl_err != gl::NO_ERROR {
-            log::warn!("[GpuCtx] GL error 0x{:x} after read_pixels (fbo={})", gl_err, self.framebuffer_id);
+            log::warn!(
+                "[GpuCtx] GL error 0x{:x} after read_pixels (fbo={})",
+                gl_err,
+                self.framebuffer_id
+            );
         }
 
         if log::log_enabled!(log::Level::Debug) && pixels.len() >= 16 {
@@ -264,15 +305,22 @@ impl CustomFramebuffer {
             let cy = h as usize / 2;
             let ci = (cy * w as usize + cx) * 4;
             let cp = if ci + 3 < pixels.len() {
-                [pixels[ci], pixels[ci+1], pixels[ci+2], pixels[ci+3]]
+                [pixels[ci], pixels[ci + 1], pixels[ci + 2], pixels[ci + 3]]
             } else {
                 [0, 0, 0, 0]
             };
             log::debug!(
                 "[GpuCtx] {}x{} corner=[{},{},{},{}] center=[{},{},{},{}]",
-                w, h,
-                pixels[0], pixels[1], pixels[2], pixels[3],
-                cp[0], cp[1], cp[2], cp[3]
+                w,
+                h,
+                pixels[0],
+                pixels[1],
+                pixels[2],
+                pixels[3],
+                cp[0],
+                cp[1],
+                cp[2],
+                cp[3]
             );
         }
 
@@ -323,7 +371,8 @@ impl GpuSharedRenderingContext {
             | surfman::ContextAttributeFlags::DEPTH
             | surfman::ContextAttributeFlags::STENCIL;
         let version = surfman::GLVersion { major: 3, minor: 0 };
-        let context_descriptor = device.create_context_descriptor(&surfman::ContextAttributes { flags, version })?;
+        let context_descriptor =
+            device.create_context_descriptor(&surfman::ContextAttributes { flags, version })?;
         let mut context = device.create_context(&context_descriptor, None)?;
 
         device.make_context_current(&context)?;
@@ -335,11 +384,12 @@ impl GpuSharedRenderingContext {
             surfman::SurfaceAccess::GPUOnly,
             surfman::SurfaceType::Generic { size: surfman_size },
         )?;
-        device.bind_surface_to_context(&mut context, surface).map_err(|(e, _)| e)?;
+        device
+            .bind_surface_to_context(&mut context, surface)
+            .map_err(|(e, _)| e)?;
 
-        let gleam_gl = unsafe {
-            gl::GlFns::load_with(|s| device.get_proc_address(&context, s) as *const _)
-        };
+        let gleam_gl =
+            unsafe { gl::GlFns::load_with(|s| device.get_proc_address(&context, s) as *const _) };
 
         let glow_gl = unsafe {
             Arc::new(glow::Context::from_loader_function(|s| {
@@ -381,7 +431,10 @@ impl RenderingContext for GpuSharedRenderingContext {
         let context = self.context.borrow();
         let _ = device.make_context_current(&context);
         if let Some(fb) = self.framebuffer.borrow().as_ref() {
-            log::debug!("[GpuCtx] prepare_for_rendering: binding FBO {}", fb.framebuffer_id);
+            log::debug!(
+                "[GpuCtx] prepare_for_rendering: binding FBO {}",
+                fb.framebuffer_id
+            );
             fb.bind();
         }
     }
@@ -390,7 +443,10 @@ impl RenderingContext for GpuSharedRenderingContext {
         let device = self.device.borrow();
         let context = self.context.borrow();
         let _ = device.make_context_current(&context);
-        self.framebuffer.borrow().as_ref()?.read_to_image(source_rectangle)
+        self.framebuffer
+            .borrow()
+            .as_ref()?
+            .read_to_image(source_rectangle)
     }
 
     fn size(&self) -> PhysicalSize<u32> {
@@ -413,7 +469,9 @@ impl RenderingContext for GpuSharedRenderingContext {
                 surfman::SurfaceAccess::GPUOnly,
                 surfman::SurfaceType::Generic { size: surfman_size },
             ) {
-                let _ = device.bind_surface_to_context(&mut context, new_surface).map_err(|(e, _)| e);
+                let _ = device
+                    .bind_surface_to_context(&mut context, new_surface)
+                    .map_err(|(e, _)| e);
             }
         } // device + context borrows released
 
