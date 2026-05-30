@@ -13,7 +13,7 @@ pub fn setup(window: &AppWindow) {
             window.set_current_url(query_str.clone().into());
             window.set_current_title(format!("Loading - {}", query_str).into());
         } else {
-            let search_url = format!("https://duckduckgo.com/?q={}", query_str);
+            let search_url = format!("http://localhost:8080/static/custom-ui/index.html?q={}", query_str);
             window.set_current_url(search_url.into());
             window.set_current_title(format!("Search - {}", query_str).into());
         }

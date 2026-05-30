@@ -1,0 +1,24 @@
+use_default_settings: true
+
+server:
+  secret_key: "foe-browser-development-secret-key-12345"
+  port: 8080
+  bind_address: "0.0.0.0"
+
+search:
+  formats:
+    - html
+    - json
+
+engines:
+  - name: google
+    engine: google
+    shortcut: go
+    timeout: 3.0
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: ddg
+    timeout: 3.0
+  - name: wikipedia
+    engine: wikipedia
+    shortcut: wp

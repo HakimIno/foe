@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search</title>
+    <!-- Use Outfit or Inter font for premium typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #1E1F22;
+            --surface-color: #2C2D30;
+            --border-color: #3A3B3E;
+            --text-primary: #FFFFFF;
+            --text-secondary: #8E9093;
+            --accent-color: #58A6FF;
+            --accent-hover: #79B8FF;
+            --card-hover: #35363A;
+            --font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: var(--font-family);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-y: auto;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Container layouts depending on state */
+        .search-container {
+            width: 100%;
+            max-width: 680px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Initial Start State (Centered) */
+        .state-initial {
+            margin-top: 25vh;
+            align-items: center;
+        }
+
+        .state-initial .logo-text {
+            font-size: 48px;
+            font-weight: 600;
+            letter-spacing: -1px;
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, #FFFFFF 0%, #8E9093 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Results State (Top aligned) */
+        .state-results {
+            margin-top: 40px;
+            align-items: flex-start;
+        }
+
+        .state-results .logo-text {
+            font-size: 24px;
+            margin-bottom: 20px;
+            cursor: pointer;
+        }
+
+        /* Search input bar wrapper */
+        .search-box-wrapper {
+            position: relative;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 2px 6px;
+            transition: border-color 0.25s, box-shadow 0.25s;
+        }
+
+        .search-box-wrapper:focus-within {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+        }
+
+        .search-input {
+            width: 100%;
+            height: 48px;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text-primary);
+            font-size: 16px;
+            padding: 0 16px;
+            font-family: var(--font-family);
+        }
+
+        .search-input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .search-icon {
+            color: var(--text-secondary);
+            margin-left: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Search Results Container */
+        .results-container {
+            width: 100%;
+            max-width: 680px;
+            padding: 0 20px 60px 20px;
+            display: none;
+            flex-direction: column;
+            gap: 24px;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Clean and minimal search result card */
+        .result-card {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 16px;
+            border-radius: 10px;
+            background-color: rgba(44, 45, 48, 0.3);
+            border: 1px solid rgba(58, 59, 62, 0.3);
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+
+        .result-card:hover {
+            background-color: var(--surface-color);
+            border-color: var(--border-color);
+        }
+
+        /* URL / Source display */
+        .result-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .result-domain {
+            font-weight: 500;
+        }
+
+        .result-badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background-color: rgba(255, 255, 255, 0.08);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Title link */
+        .result-title-link {
+            font-size: 18px;
+            font-weight: 500;
+            color: var(--accent-color);
+            text-decoration: none;
+            line-height: 1.3;
+            transition: color 0.15s;
+            width: fit-content;
+        }
+
+        .result-title-link:hover {
+            color: var(--accent-hover);
+            text-decoration: underline;
+        }
+
+        /* Snippet / Snippet description */
+        .result-snippet {
+            font-size: 14px;
+            color: #C9D1D9;
+            line-height: 1.5;
+            font-weight: 300;
+        }
+
+        /* Status / Loader States */
+        .status-container {
+            width: 100%;
+            display: none;
+            justify-content: center;
+            padding: 40px 0;
+            color: var(--text-secondary);
+            font-size: 15px;
+            font-weight: 300;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--accent-color);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 12px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Suggestions block style */
+        .suggestions-container {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .suggestion-tag {
+            font-size: 13px;
+            padding: 6px 12px;
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .suggestion-tag:hover {
+            color: var(--text-primary);
+            border-color: var(--accent-color);
+            background-color: rgba(88, 166, 255, 0.05);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="search-app" class="search-container state-initial">
+        <div class="logo-text" id="logo-button">Foe Search</div>
+        
+        <div class="search-box-wrapper">
+            <div class="search-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+            </div>
+            <input type="text" id="search-field" class="search-input" placeholder="Search the web securely..." autocomplete="off" autofocus>
+        </div>
+
+        <div id="suggestions" class="suggestions-container" style="display: none;"></div>
+    </div>
+
+    <!-- Status message container -->
+    <div id="status" class="status-container">
+        <div class="spinner"></div>
+        <span>Searching...</span>
+    </div>
+
+    <!-- Results list -->
+    <div id="results" class="results-container"></div>
+
+    <script>
+        const app = document.getElementById('search-app');
+        const input = document.getElementById('search-field');
+        const resultsContainer = document.getElementById('results');
+        const statusContainer = document.getElementById('status');
+        const suggestionsContainer = document.getElementById('suggestions');
+        const logoButton = document.getElementById('logo-button');
+
+        // Parse search query from URL parameter on load
+        window.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const query = params.get('q');
+            if (query && query.trim() !== '') {
+                input.value = query;
+                performSearch(query);
+            }
+        });
+
+        // Trigger search on Enter key
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const query = input.value.trim();
+                if (query !== '') {
+                    // Update URL without reloading page
+                    const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?q=' + encodeURIComponent(query);
+                    window.history.pushState({ path: newUrl }, '', newUrl);
+                    performSearch(query);
+                }
+            }
+        });
+
+        // Click logo to go back to home state
+        logoButton.addEventListener('click', () => {
+            input.value = '';
+            // Reset URL
+            const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+            window.history.pushState({ path: newUrl }, '', newUrl);
+            
+            // Go to initial state
+            app.className = 'search-container state-initial';
+            resultsContainer.style.display = 'none';
+            statusContainer.style.display = 'none';
+            suggestionsContainer.style.display = 'none';
+            input.focus();
+        });
+
+        // Perform AJAX search against SearXNG JSON API
+        async function performSearch(query) {
+            // Change UI to results state
+            app.className = 'search-container state-results';
+            resultsContainer.style.display = 'none';
+            suggestionsContainer.style.display = 'none';
+            
+            // Show loading status
+            statusContainer.style.display = 'flex';
+            statusContainer.innerHTML = '<div class="spinner"></div><span>Searching...</span>';
+
+            try {
+                // Fetch JSON results from the SearXNG endpoint
+                // Since this HTML is hosted on the same origin (http://localhost:8080/static/custom-ui/index.html),
+                // we can query the /search endpoint relatively!
+                const response = await fetch(`/search?q=${encodeURIComponent(query)}&format=json`);
+                if (!response.ok) {
+                    throw new Error('Search request failed');
+                }
+                const data = await response.json();
+                
+                // Hide status
+                statusContainer.style.display = 'none';
+
+                // Display results
+                renderResults(data);
+            } catch (error) {
+                console.error(error);
+                statusContainer.style.display = 'flex';
+                statusContainer.innerHTML = `<span style="color: #FF6B6B;">Error: Unable to connect to Search Engine. Please make sure SearXNG is running.</span>`;
+            }
+        }
+
+        // Render JSON search results into minimal cards
+        function renderResults(data) {
+            resultsContainer.innerHTML = '';
+            
+            if (!data.results || data.results.length === 0) {
+                resultsContainer.style.display = 'flex';
+                resultsContainer.innerHTML = '<div style="text-align: center; color: var(--text-secondary); width: 100%; padding: 40px 0; font-weight: 300;">No results found. Try a different keyword.</div>';
+                return;
+            }
+
+            // Loop and render search result cards
+            data.results.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'result-card';
+
+                // Parse readable host/domain from URL
+                let domain = '';
+                try {
+                    const parsedUrl = new URL(item.url);
+                    domain = parsedUrl.hostname.replace('www.', '');
+                } catch(e) {
+                    domain = item.url;
+                }
+
+                // Collect sources/engines list
+                const enginesList = item.engines ? item.engines.join(', ') : 'search';
+
+                card.innerHTML = `
+                    <div class="result-meta">
+                        <span class="result-domain">${domain}</span>
+                        <span class="result-badge">${enginesList}</span>
+                    </div>
+                    <a class="result-title-link" href="${item.url}" target="_blank">${escapeHTML(item.title)}</a>
+                    <div class="result-snippet">${escapeHTML(item.content || '')}</div>
+                `;
+                resultsContainer.appendChild(card);
+            });
+
+            // Handle search suggestions if available
+            if (data.suggestions && data.suggestions.length > 0) {
+                suggestionsContainer.innerHTML = '';
+                // Limit to 5 suggestions max
+                data.suggestions.slice(0, 5).forEach(suggestion => {
+                    const tag = document.createElement('span');
+                    tag.className = 'suggestion-tag';
+                    tag.textContent = suggestion;
+                    tag.addEventListener('click', () => {
+                        input.value = suggestion;
+                        const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?q=' + encodeURIComponent(suggestion);
+                        window.history.pushState({ path: newUrl }, '', newUrl);
+                        performSearch(suggestion);
+                    });
+                    suggestionsContainer.appendChild(tag);
+                });
+                suggestionsContainer.style.display = 'flex';
+            }
+
+            resultsContainer.style.display = 'flex';
+        }
+
+        // Helper to escape HTML characters
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag] || tag)
+            );
+        }
+    </script>
+</body>
+</html>

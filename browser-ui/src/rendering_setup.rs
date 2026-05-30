@@ -18,10 +18,21 @@ struct SharedState {
     needs_bind: bool,
     frame_published: bool,
     published_size: slint::PhysicalSize,
+    // Cached Slint GL state, captured on the first BeforeRendering tick.
+    // Slint sets up the same context state every frame, so we avoid the
+    // per-frame glGetIntegerv/glIsEnabled sync queries by querying once.
+    prev_state_cached: bool,
+    prev_active_texture: u32,
+    prev_tex_2d: u32,
+    prev_tex_rect: u32,
+    prev_read_fbo: u32,
+    prev_draw_fbo: u32,
+    prev_scissor_enabled: bool,
 }
 
 thread_local! {
     static PUMP_TRIGGER: RefCell<Option<Box<dyn Fn()>>> = RefCell::new(None);
+    static PAINT_TRIGGER: RefCell<Option<Box<dyn Fn()>>> = RefCell::new(None);
 
     // Performance profiling metrics
     static FRAME_COUNT: RefCell<usize> = RefCell::new(0);
@@ -32,6 +43,16 @@ thread_local! {
 /// Trigger the thread-local event loop pump callback. Must be called from the main thread.
 pub fn trigger_pump() {
     PUMP_TRIGGER.with(|trigger| {
+        if let Some(ref f) = *trigger.borrow() {
+            f();
+        }
+    });
+}
+
+/// Trigger an on-demand paint of the active tab. Must be called from the main thread.
+/// Returns immediately if no dirty flag is set, so it's safe to call freely.
+pub fn trigger_paint() {
+    PAINT_TRIGGER.with(|trigger| {
         if let Some(ref f) = *trigger.borrow() {
             f();
         }
@@ -82,15 +103,30 @@ fn profile_frame(duration: std::time::Duration) {
     });
 }
 
-/// Setup rendering callbacks and the paint timer loop for the Servo engine.
-/// Returns the timer that must be kept alive for the duration of the application.
-pub fn setup_rendering(window: &AppWindow, servo_engine: Rc<RefCell<ServoEngine>>) -> slint::Timer {
+/// Setup rendering callbacks, the event-driven paint trigger, and a low-cost
+/// heartbeat timer for the Servo engine.
+///
+/// Paint is primarily driven by `notify_new_frame_ready` (see delegate.rs), but a
+/// 16ms heartbeat timer is also kept as a safety net: not every Servo internal
+/// event (notably input event delivery) reliably fires SlintWaker.wake(), so input
+/// responsiveness depended on the old polling pump. The heartbeat ticks are nearly
+/// free when idle — `trigger_pump` short-circuits when Servo's queue is empty and
+/// `trigger_paint` exits immediately when the dirty flag is unset.
+///
+/// Returns the timer; caller must keep it alive for the duration of the app.
+pub fn setup_rendering(
+    window: &AppWindow,
+    servo_engine: Rc<RefCell<ServoEngine>>,
+) -> slint::Timer {
     use slint::BorrowedOpenGLTextureBuilder;
     use slint::BorrowedOpenGLTextureOrigin;
     use slint::RenderingState;
 
+    // GPU bridge (IOSurface zero-copy) is the default on macOS — the CPU
+    // read-back path is kept only as an escape hatch via `FOE_DISABLE_GPU_BRIDGE=1`
+    // because it forces a full GPU stall + multiple full-frame memcpys per frame.
     #[cfg(target_os = "macos")]
-    let use_gpu_bridge = std::env::var_os("FOE_USE_GPU_BRIDGE").is_some();
+    let use_gpu_bridge = std::env::var_os("FOE_DISABLE_GPU_BRIDGE").is_none();
 
     let shared_state = Rc::new(RefCell::new(SharedState {
         iosurface: None,
@@ -104,6 +140,13 @@ pub fn setup_rendering(window: &AppWindow, servo_engine: Rc<RefCell<ServoEngine>
         needs_bind: false,
         frame_published: false,
         published_size: slint::PhysicalSize::new(0, 0),
+        prev_state_cached: false,
+        prev_active_texture: 0,
+        prev_tex_2d: 0,
+        prev_tex_rect: 0,
+        prev_read_fbo: 0,
+        prev_draw_fbo: 0,
+        prev_scissor_enabled: false,
     }));
 
     #[cfg(target_os = "macos")]
@@ -156,22 +199,37 @@ pub fn setup_rendering(window: &AppWindow, servo_engine: Rc<RefCell<ServoEngine>
                         unsafe {
                             let ctx = cgl::CGLGetCurrentContext();
                             if !ctx.is_null() {
-                                // 1. Save all previous OpenGL states to avoid corrupting Slint's state
-                                let mut prev_active_texture = 0;
-                                gl::GetIntegerv(gl::ACTIVE_TEXTURE, &mut prev_active_texture);
+                                // 1. Capture Slint's GL state once on the first frame; on
+                                //    subsequent frames we trust the cached values, which avoids
+                                //    five glGetIntegerv calls + one glIsEnabled per frame
+                                //    (each a potential driver sync point).
+                                if !state.prev_state_cached {
+                                    let mut v = 0;
+                                    gl::GetIntegerv(gl::ACTIVE_TEXTURE, &mut v);
+                                    state.prev_active_texture = v as u32;
 
-                                let mut prev_tex_2d = 0;
-                                gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex_2d);
+                                    let mut v = 0;
+                                    gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut v);
+                                    state.prev_tex_2d = v as u32;
 
-                                let mut prev_tex_rect = 0;
-                                gl::GetIntegerv(0x84F6, &mut prev_tex_rect); // GL_TEXTURE_BINDING_RECTANGLE
+                                    let mut v = 0;
+                                    gl::GetIntegerv(0x84F6, &mut v); // GL_TEXTURE_BINDING_RECTANGLE
+                                    state.prev_tex_rect = v as u32;
 
-                                let mut prev_read_fbo = 0;
-                                let mut prev_draw_fbo = 0;
-                                gl::GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_read_fbo);
-                                gl::GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut prev_draw_fbo);
+                                    let mut v = 0;
+                                    gl::GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut v);
+                                    state.prev_read_fbo = v as u32;
 
-                                let scissor_enabled = gl::IsEnabled(gl::SCISSOR_TEST) != 0;
+                                    let mut v = 0;
+                                    gl::GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut v);
+                                    state.prev_draw_fbo = v as u32;
+
+                                    state.prev_scissor_enabled = gl::IsEnabled(gl::SCISSOR_TEST) != 0;
+
+                                    state.prev_state_cached = true;
+                                }
+
+                                let scissor_enabled = state.prev_scissor_enabled;
 
                                 // 2. Ensure texture IDs and FBOs are created (fallback just in case)
                                 if state.texture_rect_id == 0 {
@@ -280,12 +338,12 @@ pub fn setup_rendering(window: &AppWindow, servo_engine: Rc<RefCell<ServoEngine>
                                     gl::Enable(gl::SCISSOR_TEST);
                                 }
 
-                                gl::BindFramebuffer(gl::READ_FRAMEBUFFER, prev_read_fbo as u32);
-                                gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, prev_draw_fbo as u32);
+                                gl::BindFramebuffer(gl::READ_FRAMEBUFFER, state.prev_read_fbo);
+                                gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, state.prev_draw_fbo);
 
-                                gl::ActiveTexture(prev_active_texture as u32);
-                                gl::BindTexture(gl::TEXTURE_2D, prev_tex_2d as u32);
-                                gl::BindTexture(0x84F5, prev_tex_rect as u32);
+                                gl::ActiveTexture(state.prev_active_texture);
+                                gl::BindTexture(gl::TEXTURE_2D, state.prev_tex_2d);
+                                gl::BindTexture(0x84F5, state.prev_tex_rect);
 
                                 log::debug!("[Slint Render] Successfully blitted IOSurface to GL_TEXTURE_2D");
                             } else {
@@ -318,6 +376,7 @@ pub fn setup_rendering(window: &AppWindow, servo_engine: Rc<RefCell<ServoEngine>
                     state.bound_iosurface = None;
                     state.frame_published = false;
                     state.published_size = slint::PhysicalSize::new(0, 0);
+                    state.prev_state_cached = false;
                 }
                 _ => {}
             }
@@ -335,99 +394,111 @@ pub fn setup_rendering(window: &AppWindow, servo_engine: Rc<RefCell<ServoEngine>
         *t.borrow_mut() = Some(pump_trigger);
     });
 
-    // Event pump & paint timer (runs at 8ms intervals to match 120Hz monitors, throttling paint rate)
+    // Event-driven paint trigger. Invoked by the delegate when Servo signals a
+    // new frame is ready; cheaply no-ops when the dirty flag isn't set.
     let engine_clone = servo_engine.clone();
     let window_weak = window.as_weak();
-    let servo_timer = slint::Timer::default();
 
     #[cfg(target_os = "macos")]
-    let shared_state_clone_for_timer = shared_state.clone();
+    let shared_state_clone_for_paint = shared_state.clone();
 
     #[cfg(target_os = "macos")]
-    let use_gpu_bridge_for_timer = use_gpu_bridge;
+    let use_gpu_bridge_for_paint = use_gpu_bridge;
 
-    servo_timer.start(
+    let paint_trigger = Box::new(move || {
+        let engine = engine_clone.borrow();
+
+        if !engine.has_active_webview() {
+            let _ = crate::servo_engine::take_active_dirty();
+            return;
+        }
+
+        if !crate::servo_engine::take_active_dirty() {
+            return;
+        }
+
+        let start = Instant::now();
+        engine.paint_active();
+
+        #[cfg(target_os = "macos")]
+        {
+            if use_gpu_bridge_for_paint {
+                if let Some(tab) = engine.get_active_tab() {
+                    let Some(rendering_context) = tab.rendering_context.as_ref() else {
+                        return;
+                    };
+                    let iosurface = rendering_context.get_iosurface();
+                    let size = rendering_context.size.get();
+
+                    let mut state = shared_state_clone_for_paint.borrow_mut();
+                    state.iosurface = iosurface;
+                    state.size = slint::PhysicalSize::new(size.width, size.height);
+                    state.needs_bind = true;
+
+                    let should_publish_frame = !state.frame_published
+                        || state.published_size != state.size
+                        || state.bound_iosurface != iosurface;
+
+                    if should_publish_frame
+                        && iosurface.is_some()
+                        && state.texture_2d_id != 0
+                        && size.width > 0
+                        && size.height > 0
+                    {
+                        let frame = unsafe {
+                            BorrowedOpenGLTextureBuilder::new_gl_2d_rgba_texture(
+                                core::num::NonZeroU32::new(state.texture_2d_id).unwrap(),
+                                (size.width, size.height).into(),
+                            )
+                        }
+                        .origin(BorrowedOpenGLTextureOrigin::BottomLeft)
+                        .build();
+
+                        if let Some(window) = window_weak.upgrade() {
+                            window.set_frame(frame);
+                        }
+                        state.frame_published = true;
+                        state.published_size = state.size;
+                    } else if let Some(window) = window_weak.upgrade() {
+                        window.window().request_redraw();
+                    }
+                }
+            } else if let Some(frame) = engine.get_active_frame() {
+                if let Some(window) = window_weak.upgrade() {
+                    window.set_frame(frame);
+                }
+            }
+        }
+
+        #[cfg(not(target_os = "macos"))]
+        {
+            if let Some(frame) = engine.get_active_frame() {
+                if let Some(window) = window_weak.upgrade() {
+                    window.set_frame(frame);
+                }
+            }
+        }
+
+        profile_frame(start.elapsed());
+    });
+
+    PAINT_TRIGGER.with(|t| {
+        *t.borrow_mut() = Some(paint_trigger);
+    });
+
+    // Heartbeat: every 16ms, pump Servo's event loop and paint if dirty.
+    // Both calls are cheap no-ops when there's no work, so this is essentially
+    // free when the user is idle but ensures input events that don't fire
+    // SlintWaker.wake() still get processed promptly.
+    let heartbeat = slint::Timer::default();
+    heartbeat.start(
         slint::TimerMode::Repeated,
         std::time::Duration::from_millis(16),
         move || {
-            let engine = engine_clone.borrow();
-
-            // 1. Pump the Servo event loop to process inputs, layout, and compositing tasks
-            engine.spin_event_loop();
-
-            if !engine.has_active_webview() {
-                let _ = crate::servo_engine::take_active_dirty();
-                return;
-            }
-
-            // 2. Throttled Paint: Only paint and update frame if the dirty flag is set
-            if crate::servo_engine::take_active_dirty() {
-                let start = Instant::now();
-                engine.paint_active();
-
-                #[cfg(target_os = "macos")]
-                {
-                    if use_gpu_bridge_for_timer {
-                        if let Some(tab) = engine.get_active_tab() {
-                            let Some(rendering_context) = tab.rendering_context.as_ref() else {
-                                return;
-                            };
-                            let iosurface = rendering_context.get_iosurface();
-                            let size = rendering_context.size.get();
-
-                            let mut state = shared_state_clone_for_timer.borrow_mut();
-                            state.iosurface = iosurface;
-                            state.size = slint::PhysicalSize::new(size.width, size.height);
-                            state.needs_bind = true;
-
-                            let should_publish_frame = !state.frame_published
-                                || state.published_size != state.size
-                                || state.bound_iosurface != iosurface;
-
-                            if should_publish_frame
-                                && iosurface.is_some()
-                                && state.texture_2d_id != 0
-                                && size.width > 0
-                                && size.height > 0
-                            {
-                                let frame = unsafe {
-                                    BorrowedOpenGLTextureBuilder::new_gl_2d_rgba_texture(
-                                        core::num::NonZeroU32::new(state.texture_2d_id).unwrap(),
-                                        (size.width, size.height).into(),
-                                    )
-                                }
-                                .origin(BorrowedOpenGLTextureOrigin::BottomLeft)
-                                .build();
-
-                                if let Some(window) = window_weak.upgrade() {
-                                    window.set_frame(frame);
-                                }
-                                state.frame_published = true;
-                                state.published_size = state.size;
-                            } else if let Some(window) = window_weak.upgrade() {
-                                window.window().request_redraw();
-                            }
-                        }
-                    } else if let Some(frame) = engine.get_active_frame() {
-                        if let Some(window) = window_weak.upgrade() {
-                            window.set_frame(frame);
-                        }
-                    }
-                }
-
-                #[cfg(not(target_os = "macos"))]
-                {
-                    if let Some(frame) = engine.get_active_frame() {
-                        if let Some(window) = window_weak.upgrade() {
-                            window.set_frame(frame);
-                        }
-                    }
-                }
-
-                profile_frame(start.elapsed());
-            }
+            trigger_pump();
+            trigger_paint();
         },
     );
 
-    servo_timer
+    heartbeat
 }

@@ -28,7 +28,7 @@ fn clean_url_input(input: &str) -> String {
         format!("https://{}", trimmed)
     } else {
         let encoded: String = url::form_urlencoded::byte_serialize(trimmed.as_bytes()).collect();
-        format!("https://duckduckgo.com/?q={}", encoded)
+        format!("http://localhost:8080/static/custom-ui/index.html?q={}", encoded)
     }
 }
 

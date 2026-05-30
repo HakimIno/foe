@@ -71,8 +71,8 @@ async fn main() -> Result<(), slint::PlatformError> {
         }
     }
 
-    // 4. Set up rendering callbacks and frame timer loop
-    let _servo_timer = rendering_setup::setup_rendering(&window, servo_engine.clone());
+    // 4. Set up rendering callbacks, event-driven paint trigger, and heartbeat timer
+    let _heartbeat = rendering_setup::setup_rendering(&window, servo_engine.clone());
 
 
     // 5. Window event handler (resize and inputs)

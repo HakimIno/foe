@@ -8,7 +8,13 @@
 
 use crate::AppWindow;
 use servo::{WebView as ServoWebView, WebViewDelegate};
-use slint::{ComponentHandle, Model, Weak};
+use slint::{Model, Weak};
+use std::sync::atomic::{AtomicBool, Ordering};
+
+// Coalesce frame-ready redraw requests across all delegates.
+// Without this, rapid notifications (animation, scrolling) flood the Slint
+// event loop with redundant invoke_from_event_loop callbacks.
+static FRAME_READY_PENDING: AtomicBool = AtomicBool::new(false);
 
 /// Delegate that receives events from a Servo WebView and updates the Slint UI
 pub struct FoeWebViewDelegate {
@@ -29,12 +35,22 @@ impl WebViewDelegate for FoeWebViewDelegate {
     /// Called when Servo has a new frame ready to display
     fn notify_new_frame_ready(&self, _webview: ServoWebView) {
         log::trace!("[Delegate] New frame ready for tab {}", self.tab_index);
-        let w_weak = self.window_weak.clone();
+
+        // Mark dirty immediately — cheap atomic, no queuing.
+        crate::servo_engine::set_active_dirty(true);
+
+        // If a paint callback is already pending on the Slint event loop,
+        // skip queuing another one. The pending callback will pick up the
+        // dirty flag we just set.
+        if FRAME_READY_PENDING.swap(true, Ordering::SeqCst) {
+            return;
+        }
+
         let _ = slint::invoke_from_event_loop(move || {
-            crate::servo_engine::set_active_dirty(true);
-            if let Some(window) = w_weak.upgrade() {
-                window.window().request_redraw();
-            }
+            FRAME_READY_PENDING.store(false, Ordering::SeqCst);
+            // Drive the paint pipeline directly. trigger_paint() internally calls
+            // window.set_frame() / request_redraw() so we don't need to do it here.
+            crate::rendering_setup::trigger_paint();
         });
     }
 

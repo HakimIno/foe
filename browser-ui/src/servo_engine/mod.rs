@@ -40,15 +40,12 @@ fn render_scale_for_window(window_scale: f32) -> f32 {
         }
     }
 
-    #[cfg(target_os = "macos")]
-    {
-        1.0_f32.min(window_scale.max(0.5))
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        window_scale.max(0.5)
-    }
+    // Render at the window's native HiDPI scale on every platform. On macOS
+    // Retina this was previously clamped to 1.0 to avoid the cost of the CPU
+    // read-back path, but with IOSurface zero-copy that cost is gone — rendering
+    // at 1.0 only makes content look blurry and unnaturally small when Slint
+    // upscales the texture back to physical pixels.
+    window_scale.max(0.5)
 }
 
 use crate::AppWindow;
@@ -144,12 +141,19 @@ impl ServoEngine {
             .unwrap_or(1.0);
         let render_scale_factor = render_scale_for_window(window_scale_factor);
 
-        let logical_size = window.window().size();
-        let chrome_height_render = (76.0 * render_scale_factor) as u32;
-        let init_w = ((logical_size.width as f32) * render_scale_factor) as u32;
-        let init_h = (((logical_size.height as f32) * render_scale_factor) as u32)
-            .saturating_sub(chrome_height_render)
-            .max(1);
+        // window.window().size() returns PhysicalSize. Convert to logical pixels
+        // first, then scale by render_scale_factor — mirroring the math in
+        // handle_winit_event::Resized. Treating physical as logical here was
+        // multiplying the framebuffer by window_scale * render_scale, blowing the
+        // CSS viewport up (e.g. 1440 → 2880 CSS px on Retina) and making every
+        // page look tiny because layout sized for a "2880px desktop".
+        let physical_size = window.window().size();
+        let logical_w = physical_size.width as f32 / window_scale_factor.max(0.1);
+        let logical_h = physical_size.height as f32 / window_scale_factor.max(0.1);
+        let init_w = (logical_w * render_scale_factor).round().max(1.0) as u32;
+        let init_h = ((logical_h - 76.0).max(1.0) * render_scale_factor)
+            .round()
+            .max(1.0) as u32;
 
         log::info!(
             "[ServoEngine] Tab {} render size: {}x{} (window scale={:.1}, render scale={:.1})",
@@ -466,6 +470,12 @@ impl ServoEngine {
                     if let Some(webview) = self.get_active_webview() {
                         webview.notify_input_event(servo_event);
                     }
+                    // Pump Servo's event loop right here so the input event is
+                    // processed in the same iteration. Without this, hover/click/
+                    // scroll feedback would wait up to ~16ms for the heartbeat
+                    // (and longer in debug builds when paint takes >16ms), which
+                    // makes the page feel completely unresponsive.
+                    self.spin_event_loop();
                 }
             }
         }
