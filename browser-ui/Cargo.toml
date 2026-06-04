@@ -14,14 +14,19 @@ url = "2.5"
 log = "0.4"
 env_logger = "0.11"
 
-# Servo Engine
-servo = "=0.1.0"
-servo-embedder-traits = "=0.1.0"
-surfman = { version = "0.11.0", features = ["chains"] }
+# Servo Engine — tracking git nightly (was crates.io =0.1.1). Pinned to a
+# specific rev for reproducible builds; bump the rev to pull newer layout
+# fixes. Both servo crates must share the same rev so their internal types
+# line up.
+servo = { git = "https://github.com/servo/servo", rev = "bf07bb9a2fc6b19f67d0a0dbd2643d3b95af7fc8" }
+servo-embedder-traits = { git = "https://github.com/servo/servo", rev = "bf07bb9a2fc6b19f67d0a0dbd2643d3b95af7fc8" }
+# surfman/glow bumped to match what servo HEAD depends on — these crates are
+# shared across the foe↔Servo GL boundary, so versions must agree exactly.
+surfman = { version = "0.12.2", features = ["chains"] }
 cgl = "0.3"
 gl = "0.14.0"
 gleam = "0.15"
-glow = "0.16.0"
+glow = "0.17.0"
 euclid = "0.22"
 keyboard-types = "0.8"
 image = "0.25"

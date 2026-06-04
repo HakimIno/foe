@@ -22,13 +22,15 @@ const REQUEST_IDLE_CALLBACK: &str = include_str!("request_idle_callback.js");
 const INTERSECTION_OBSERVER: &str = include_str!("intersection_observer.js");
 const RESIZE_OBSERVER: &str = include_str!("resize_observer.js");
 
-// Tier 3 — DOM API patches. Safe to load after observers since none of
-// these rely on the observer machinery.
+// Tier 3 — DOM/global API patches. Safe to load after observers since none
+// of these rely on the observer machinery.
 const SVG_A_ELEMENT: &str = include_str!("svg_a_element.js");
 const WEB_ANIMATIONS: &str = include_str!("web_animations.js");
 const DIALOG_ELEMENT: &str = include_str!("dialog_element.js");
 const CUSTOM_ELEMENTS: &str = include_str!("custom_elements.js");
 const POINTER_EVENTS: &str = include_str!("pointer_events.js");
+const CRYPTO_RANDOM_UUID: &str = include_str!("crypto_random_uuid.js");
+const URL_CAN_PARSE: &str = include_str!("url_can_parse.js");
 
 // Opt-in DevTools loader. Only appended to the bundle when FOE_ERUDA=1
 // at startup so production runs don't pay the (one-time) CDN fetch.
@@ -59,6 +61,8 @@ pub fn bundle() -> String {
         DIALOG_ELEMENT,
         CUSTOM_ELEMENTS,
         POINTER_EVENTS,
+        CRYPTO_RANDOM_UUID,
+        URL_CAN_PARSE,
     ]
     .join("\n");
     out.push('\n');

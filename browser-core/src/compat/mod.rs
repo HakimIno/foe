@@ -13,8 +13,9 @@
 //!   Servo's `UserContentManager.add_script()`
 //! * [`baseline_stylesheet()`] — CSS rules registered via
 //!   `UserContentManager.add_stylesheet()`
-//! * [`site_rules`] — per-domain CSS/JS patches; empty skeleton today,
-//!   ready for entries as we find sites that need them
+//! * [`site_rules`] — per-domain CSS/JS patches, applied via a runtime
+//!   dispatcher appended to the polyfill bundle; add entries as we find
+//!   sites that need them
 //!
 //! ### Runtime overrides
 //!

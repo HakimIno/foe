@@ -488,7 +488,24 @@ impl RenderingContext for GpuSharedRenderingContext {
         let device = self.device.borrow();
         let context = self.context.borrow();
         let _ = device.make_context_current(&context);
-        self.gleam_gl.flush();
+
+        // Block until Servo's render commands for this frame have fully
+        // completed on the GPU before the frame counts as presented.
+        //
+        // The consumer (Slint) samples our shared surface from a *separate*
+        // GL context. A bare flush() only submits commands without waiting,
+        // so Slint's blit could run mid-render and sample a partial or
+        // freshly-cleared surface — the visible flicker. finish() drains the
+        // pipeline so the surface is stable by the time the frame-ready
+        // signal reaches the compositor. This mirrors the finish() the CPU
+        // read-back path already does before glReadPixels (see read_to_image).
+        //
+        // NOTE: a glFenceSync + glClientWaitSync pair would be lighter than a
+        // full finish(), but sync objects are GL 3.2 / ARB_sync while this
+        // context is created at GL 3.0 — calling an unloaded entry point would
+        // panic. Revisit once the context is bumped to >= 3.2 (and pair it
+        // with double-buffered surfaces to drop the CPU stall entirely).
+        self.gleam_gl.finish();
     }
 
     fn make_current(&self) -> Result<(), surfman::Error> {
