@@ -13,24 +13,31 @@ chrono = "0.4"
 url = "2.5"
 log = "0.4"
 env_logger = "0.11"
+wry = { version = "0.44", optional = true }
+raw-window-handle = { version = "0.6", optional = true }
 
 # Servo Engine — tracking git nightly (was crates.io =0.1.1). Pinned to a
 # specific rev for reproducible builds; bump the rev to pull newer layout
 # fixes. Both servo crates must share the same rev so their internal types
 # line up.
-servo = { git = "https://github.com/servo/servo", rev = "bf07bb9a2fc6b19f67d0a0dbd2643d3b95af7fc8" }
-servo-embedder-traits = { git = "https://github.com/servo/servo", rev = "bf07bb9a2fc6b19f67d0a0dbd2643d3b95af7fc8" }
+servo = { optional = true, git = "https://github.com/servo/servo", rev = "bf07bb9a2fc6b19f67d0a0dbd2643d3b95af7fc8" }
+servo-embedder-traits = { optional = true, git = "https://github.com/servo/servo", rev = "bf07bb9a2fc6b19f67d0a0dbd2643d3b95af7fc8" }
 # surfman/glow bumped to match what servo HEAD depends on — these crates are
 # shared across the foe↔Servo GL boundary, so versions must agree exactly.
-surfman = { version = "0.12.2", features = ["chains"] }
-cgl = "0.3"
-gl = "0.14.0"
-gleam = "0.15"
-glow = "0.17.0"
-euclid = "0.22"
-keyboard-types = "0.8"
-image = "0.25"
-dpi = "0.1"
+surfman = { optional = true, version = "0.12.2", features = ["chains"] }
+cgl = { version = "0.3", optional = true }
+gl = { version = "0.14.0", optional = true }
+gleam = { version = "0.15", optional = true }
+glow = { version = "0.17.0", optional = true }
+euclid = { version = "0.22", optional = true }
+keyboard-types = { version = "0.8", optional = true }
+image = { version = "0.25", optional = true }
+dpi = { version = "0.1", optional = true }
 
 [build-dependencies]
 slint-build = "1.6"
+
+[features]
+default = ["engine-wry"]
+engine-servo = ["dep:servo", "dep:servo-embedder-traits", "dep:surfman", "dep:cgl", "dep:gl", "dep:gleam", "dep:glow", "dep:euclid", "dep:keyboard-types", "dep:image", "dep:dpi"]
+engine-wry = ["dep:wry", "dep:raw-window-handle"]

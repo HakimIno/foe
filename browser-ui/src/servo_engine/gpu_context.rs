@@ -349,6 +349,12 @@ impl CustomFramebuffer {
     }
 }
 
+/// Number of IOSurface-backed render targets we rotate through. Two is
+/// enough for producer/consumer double-buffering: Servo renders into one
+/// surface while Slint samples the other, so the two contexts never touch
+/// the same surface at the same time.
+const BUFFER_COUNT: usize = 2;
+
 pub struct GpuSharedRenderingContext {
     pub connection: Connection,
     pub adapter: Adapter,
@@ -357,8 +363,15 @@ pub struct GpuSharedRenderingContext {
     pub size: Cell<PhysicalSize<u32>>,
     pub gleam_gl: Rc<dyn Gl>,
     pub glow_gl: Arc<glow::Context>,
-    // Option so we can take it in drop() before destroying the GL context
-    framebuffer: RefCell<Option<CustomFramebuffer>>,
+    // Double-buffered render targets. Empty only after teardown (Drop takes
+    // them while the GL context is still current). Servo renders into
+    // `render_index`; the consumer reads the most recently presented
+    // surface via `front_index`.
+    framebuffers: RefCell<Vec<CustomFramebuffer>>,
+    // Surface Servo renders the *next* frame into.
+    render_index: Cell<usize>,
+    // Most recently fully-presented surface — the one the consumer samples.
+    front_index: Cell<usize>,
 }
 
 impl GpuSharedRenderingContext {
@@ -397,9 +410,13 @@ impl GpuSharedRenderingContext {
             }))
         };
 
-        // Create the texture-backed FBO that WebRender will render into.
-        // This matches OffscreenRenderingContext::Framebuffer::new() from servo-paint-api.
-        let framebuffer = CustomFramebuffer::new(gleam_gl.clone(), size);
+        // Create the texture-backed FBOs that WebRender renders into — one
+        // per buffer. Each mirrors OffscreenRenderingContext::Framebuffer
+        // from servo-paint-api, just rotated for double-buffering.
+        let mut framebuffers = Vec::with_capacity(BUFFER_COUNT);
+        for _ in 0..BUFFER_COUNT {
+            framebuffers.push(CustomFramebuffer::new(gleam_gl.clone(), size));
+        }
 
         Ok(GpuSharedRenderingContext {
             connection,
@@ -409,14 +426,20 @@ impl GpuSharedRenderingContext {
             size: Cell::new(size),
             gleam_gl,
             glow_gl,
-            framebuffer: RefCell::new(Some(framebuffer)),
+            framebuffers: RefCell::new(framebuffers),
+            render_index: Cell::new(0),
+            front_index: Cell::new(0),
         })
     }
 
     pub fn get_iosurface(&self) -> Option<*const std::ffi::c_void> {
         #[cfg(target_os = "macos")]
         {
-            self.framebuffer.borrow().as_ref().map(|fb| fb.iosurface)
+            // The consumer reads the most recently presented surface.
+            self.framebuffers
+                .borrow()
+                .get(self.front_index.get())
+                .map(|fb| fb.iosurface)
         }
         #[cfg(not(target_os = "macos"))]
         {
@@ -430,10 +453,13 @@ impl RenderingContext for GpuSharedRenderingContext {
         let device = self.device.borrow();
         let context = self.context.borrow();
         let _ = device.make_context_current(&context);
-        if let Some(fb) = self.framebuffer.borrow().as_ref() {
+        // Render into the back buffer — never the surface the consumer is
+        // currently sampling.
+        if let Some(fb) = self.framebuffers.borrow().get(self.render_index.get()) {
             log::debug!(
-                "[GpuCtx] prepare_for_rendering: binding FBO {}",
-                fb.framebuffer_id
+                "[GpuCtx] prepare_for_rendering: binding FBO {} (buffer {})",
+                fb.framebuffer_id,
+                self.render_index.get()
             );
             fb.bind();
         }
@@ -443,9 +469,10 @@ impl RenderingContext for GpuSharedRenderingContext {
         let device = self.device.borrow();
         let context = self.context.borrow();
         let _ = device.make_context_current(&context);
-        self.framebuffer
+        // CPU read-back samples the presented (front) surface.
+        self.framebuffers
             .borrow()
-            .as_ref()?
+            .get(self.front_index.get())?
             .read_to_image(source_rectangle)
     }
 
@@ -475,12 +502,19 @@ impl RenderingContext for GpuSharedRenderingContext {
             }
         } // device + context borrows released
 
-        // Destroy old FBO (GL context still current) and create new one
-        if let Some(old_fb) = self.framebuffer.borrow_mut().take() {
-            old_fb.destroy();
+        // Destroy old FBOs (GL context still current) and recreate the full
+        // buffer set at the new size.
+        {
+            let mut fbs = self.framebuffers.borrow_mut();
+            for fb in fbs.drain(..) {
+                fb.destroy();
+            }
+            for _ in 0..BUFFER_COUNT {
+                fbs.push(CustomFramebuffer::new(self.gleam_gl.clone(), size));
+            }
         }
-        let new_fb = CustomFramebuffer::new(self.gleam_gl.clone(), size);
-        *self.framebuffer.borrow_mut() = Some(new_fb);
+        self.render_index.set(0);
+        self.front_index.set(0);
         self.size.set(size);
     }
 
@@ -503,9 +537,19 @@ impl RenderingContext for GpuSharedRenderingContext {
         // NOTE: a glFenceSync + glClientWaitSync pair would be lighter than a
         // full finish(), but sync objects are GL 3.2 / ARB_sync while this
         // context is created at GL 3.0 — calling an unloaded entry point would
-        // panic. Revisit once the context is bumped to >= 3.2 (and pair it
-        // with double-buffered surfaces to drop the CPU stall entirely).
+        // panic. Revisit once the context is bumped to >= 3.2 to drop this
+        // CPU stall entirely.
         self.gleam_gl.finish();
+
+        // Promote the surface we just rendered (and finished) to "front" so
+        // the consumer reads a complete frame, and route the next frame to
+        // the other buffer. Combined with double-buffering this removes the
+        // read-during-write race that a single shared surface can't avoid
+        // even with finish(): the consumer's `front` is never the surface
+        // Servo writes next.
+        let rendered = self.render_index.get();
+        self.front_index.set(rendered);
+        self.render_index.set((rendered + 1) % BUFFER_COUNT);
     }
 
     fn make_current(&self) -> Result<(), surfman::Error> {
@@ -559,7 +603,7 @@ impl Drop for GpuSharedRenderingContext {
 
         // Explicitly destroy GL objects while the context is still current,
         // before we call destroy_context below.
-        if let Some(fb) = self.framebuffer.borrow_mut().take() {
+        for fb in self.framebuffers.borrow_mut().drain(..) {
             fb.destroy();
         }
 

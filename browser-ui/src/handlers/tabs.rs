@@ -1,17 +1,16 @@
 use crate::{AppWindow, TabInfo};
-use crate::servo_engine::ServoEngine;
 use slint::{ComponentHandle, Model, ModelRc, VecModel};
 use std::rc::Rc;
 use std::cell::RefCell;
 
-pub fn setup(window: &AppWindow, servo_engine: Rc<RefCell<ServoEngine>>) {
+pub fn setup(window: &AppWindow, servo_engine: Rc<RefCell<crate::Engine>>) {
     setup_select_tab(window, servo_engine.clone());
     setup_new_tab(window, servo_engine.clone());
     setup_close_tab(window, servo_engine.clone());
     setup_move_tab(window, servo_engine.clone());
 }
 
-fn setup_select_tab(window: &AppWindow, servo_engine: Rc<RefCell<ServoEngine>>) {
+fn setup_select_tab(window: &AppWindow, servo_engine: Rc<RefCell<crate::Engine>>) {
     let window_weak = window.as_weak();
     let engine_clone = servo_engine.clone();
 
@@ -33,7 +32,7 @@ fn setup_select_tab(window: &AppWindow, servo_engine: Rc<RefCell<ServoEngine>>) 
     });
 }
 
-fn setup_new_tab(window: &AppWindow, servo_engine: Rc<RefCell<ServoEngine>>) {
+fn setup_new_tab(window: &AppWindow, servo_engine: Rc<RefCell<crate::Engine>>) {
     let window_weak = window.as_weak();
     let engine_clone = servo_engine.clone();
 
@@ -67,7 +66,7 @@ fn setup_new_tab(window: &AppWindow, servo_engine: Rc<RefCell<ServoEngine>>) {
     });
 }
 
-fn setup_close_tab(window: &AppWindow, servo_engine: Rc<RefCell<ServoEngine>>) {
+fn setup_close_tab(window: &AppWindow, servo_engine: Rc<RefCell<crate::Engine>>) {
     let window_weak = window.as_weak();
     let engine_clone = servo_engine.clone();
 
@@ -105,7 +104,7 @@ fn setup_close_tab(window: &AppWindow, servo_engine: Rc<RefCell<ServoEngine>>) {
     });
 }
 
-fn setup_move_tab(window: &AppWindow, servo_engine: Rc<RefCell<ServoEngine>>) {
+fn setup_move_tab(window: &AppWindow, servo_engine: Rc<RefCell<crate::Engine>>) {
     let window_weak = window.as_weak();
     let engine_clone = servo_engine.clone();
 

@@ -1,5 +1,4 @@
 use crate::AppWindow;
-use crate::servo_engine::ServoEngine;
 use browser_core::storage::Database;
 use browser_core::shields::ShieldsEngine;
 use std::sync::{Arc, Mutex};
@@ -36,7 +35,7 @@ pub fn setup(
     window: &AppWindow,
     db: Arc<Mutex<Database>>,
     shields: Arc<Mutex<ShieldsEngine>>,
-    servo_engine: Rc<RefCell<ServoEngine>>,
+    servo_engine: Rc<RefCell<crate::Engine>>,
 ) {
     let window_weak = window.as_weak();
     let db_clone = db.clone();

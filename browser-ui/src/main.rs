@@ -1,8 +1,18 @@
 slint::include_modules!();
 
 mod handlers;
+
+#[cfg(feature = "engine-servo")]
 pub mod servo_engine;
+#[cfg(feature = "engine-servo")]
+pub use servo_engine::ServoEngine as Engine;
+#[cfg(feature = "engine-servo")]
 mod rendering_setup;
+
+#[cfg(feature = "engine-wry")]
+pub mod wry_engine;
+#[cfg(feature = "engine-wry")]
+pub use wry_engine::WryEngine as Engine;
 
 use browser_core::storage::Database;
 use browser_core::shields::ShieldsEngine;
@@ -10,22 +20,11 @@ use browser_core::downloader::DownloadManager;
 use std::sync::{Arc, Mutex};
 use std::rc::Rc;
 use std::cell::RefCell;
-use servo_engine::ServoEngine;
 use i_slint_backend_winit::WinitWindowAccessor;
 use slint::Model;
 
 #[tokio::main]
 async fn main() -> Result<(), slint::PlatformError> {
-    // Initialize logging. Servo's script::script_runtime + script::dom::globalscope
-    // log every unhandled JS promise rejection / DOM error at ERROR level. Modern
-    // web pages routinely trigger these because Servo lacks several Web APIs
-    // (IntersectionObserver, Element.animate, SVGAElement, …), and each stderr
-    // write blocks the main thread — silencing these two modules removes a
-    // significant source of micro-stutter without hiding real errors elsewhere.
-    //
-    // Set FOE_JS_LOG=1 to drop the filter when debugging a broken page —
-    // the terminal will then surface every JS error and "missing API X"
-    // message so you can decide which polyfill to add next.
     let mut log_builder = env_logger::Builder::from_default_env();
     let js_log_enabled = matches!(
         std::env::var("FOE_JS_LOG").as_deref(),
@@ -40,7 +39,6 @@ async fn main() -> Result<(), slint::PlatformError> {
     }
     log_builder.init();
 
-    // 0. Configure macOS titlebar transparency and full-size content view
     #[cfg(target_os = "macos")]
     {
         let mut backend = i_slint_backend_winit::Backend::new()?;
@@ -55,64 +53,59 @@ async fn main() -> Result<(), slint::PlatformError> {
         slint::platform::set_platform(Box::new(backend)).unwrap();
     }
 
-    // 1. Initialize Backend Core Services
     let db_path = "browser_data.db";
     let db = Arc::new(Mutex::new(Database::new(db_path).expect("Failed to initialize database")));
     let shields = Arc::new(Mutex::new(ShieldsEngine::new()));
     let download_manager = Arc::new(DownloadManager::new());
 
-    // 2. Initialize UI Application Window
     let window = AppWindow::new()?;
 
     #[cfg(target_os = "macos")]
     window.set_has_titlebar_spacing(true);
 
-    // Show the window first to realize the winit window handles and acquire valid sizes
     window.show().expect("Failed to show window");
 
-    // Open maximized on all platforms (macOS hook above also sets this at creation time)
     let _ = window.window().with_winit_window(|winit_window| {
         winit_window.set_maximized(true);
     });
 
-    // 3. Initialize Servo Engine
-    let servo_engine = Rc::new(RefCell::new(ServoEngine::new()));
+    let engine = Rc::new(RefCell::new(Engine::new()));
     
-    // Initialize Servo with window context
-    servo_engine.borrow_mut().initialize(&window);
+    engine.borrow_mut().initialize(&window);
 
-    // Create initial tabs with Servo WebViews
     {
         let tabs_model = window.get_tabs();
-        let mut engine = servo_engine.borrow_mut();
+        let mut eng = engine.borrow_mut();
         for i in 0..tabs_model.row_count() {
             if let Some(tab) = tabs_model.row_data(i) {
-                engine.add_tab(&tab.url, &window);
+                eng.add_tab(&tab.url, &window);
             }
         }
     }
 
-    // 4. Set up rendering callbacks, event-driven paint trigger, and heartbeat timer
-    let _heartbeat = rendering_setup::setup_rendering(&window, servo_engine.clone());
+    #[cfg(feature = "engine-servo")]
+    let _heartbeat = rendering_setup::setup_rendering(&window, engine.clone());
 
-
-    // 5. Window event handler (resize and inputs)
     {
-        let engine_clone = servo_engine.clone();
+        let engine_clone = engine.clone();
         window.window().on_winit_window_event(move |winit_window, event| {
             let scale = winit_window.scale_factor() as f32;
             engine_clone.borrow_mut().handle_winit_event(event, scale);
+            
+            #[cfg(feature = "engine-wry")]
+            if let i_slint_backend_winit::winit::event::WindowEvent::Resized(size) = event {
+                engine_clone.borrow_mut().resize_from_event(*size, scale as f64);
+            }
+            
             i_slint_backend_winit::EventResult::Propagate
         });
     }
 
-    // 6. Delegate UI Event Bindings to Modular Handlers
-    handlers::navigation::setup(&window, db, shields, servo_engine.clone());
-    handlers::tabs::setup(&window, servo_engine.clone());
+    handlers::navigation::setup(&window, db, shields, engine.clone());
+    handlers::tabs::setup(&window, engine.clone());
     handlers::downloader::setup(&window, download_manager);
     handlers::command_bar::setup(&window);
 
-    // Bind Custom Window Dragging & Double-Click to Maximize
     let window_weak = window.as_weak();
     window.on_start_drag_window(move || {
         if let Some(window) = window_weak.upgrade() {
@@ -134,8 +127,11 @@ async fn main() -> Result<(), slint::PlatformError> {
         }
     });
 
-    // 7. Start App Event Loop
+    #[cfg(feature = "engine-servo")]
     println!("[Bootstrap] foe initialized with Servo Engine 🚀");
+    #[cfg(feature = "engine-wry")]
+    println!("[Bootstrap] foe initialized with Wry Engine 🚀");
+    
     window.run()?;
     Ok(())
 }
