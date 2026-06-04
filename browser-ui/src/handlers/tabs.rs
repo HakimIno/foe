@@ -52,6 +52,8 @@ fn setup_new_tab(window: &AppWindow, servo_engine: Rc<RefCell<crate::Engine>>) {
             active: true,
             is_pinned: false,
             site_type: "google".into(),
+            has_favicon: false,
+            favicon: slint::Image::default(),
         });
 
         window.set_current_url(default_url.into());

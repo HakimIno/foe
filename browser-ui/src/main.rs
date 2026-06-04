@@ -73,6 +73,15 @@ async fn main() -> Result<(), slint::PlatformError> {
     
     engine.borrow_mut().initialize(&window);
 
+    // Sync engine layout ให้ตรงกับ tab-layout ปัจจุบันของ UI (Slint property คือ
+    // single source of truth). Engine::new() อาจ default คนละค่ากับ UI ซึ่งจะทำให้
+    // native webview ถูกวาง bounds ผิด layout ตอน startup (chrome "top" แต่ webview
+    // ใช้ค่าของ "left" เป็นต้น) — sync ก่อนสร้าง webview ใดๆ
+    {
+        let layout = window.get_tab_layout();
+        engine.borrow_mut().set_tab_layout(layout.as_str(), &window);
+    }
+
     {
         let tabs_model = window.get_tabs();
         let mut eng = engine.borrow_mut();

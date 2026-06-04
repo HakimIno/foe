@@ -82,11 +82,27 @@ export component AppWindow inherits Window {
             spacing: 0px;
 
             if root.tab-layout == "top" : Rectangle {
-                background: #2B2D31; // Unified modern header background
+                // Vivid cobalt-blue chrome (น้ำเงินสด อิ่มสี ไม่ออกม่วงเทา)
+                background: @linear-gradient(180deg, #4661FF 0%, #3650F0 100%);
                 vertical-stretch: 0;
+                clip: true;
+
+                // เม็ด noise/grain ทับบนพื้นน้ำเงิน (opacity ต่ำ ไม่ให้ฟอกสีจนซีด)
+                Image {
+                    x: 0px;
+                    y: 0px;
+                    width: parent.width;
+                    height: parent.height;
+                    source: @image-url("textures/noise.svg");
+                    image-fit: cover;
+                    opacity: 0.18;
+                }
 
                 VerticalLayout {
                     spacing: 0px;
+                    // ขอบน้ำเงินใต้ navbar ให้ webview ไม่ชิดเกินไป (มีระยะหายใจ)
+                    // 40 (TabBar) + 40 (Navbar) + 12 = 92 ตรงกับ compute_bounds "top"=92
+                    padding-bottom: 12px;
 
                     TabBar {
                         tabs: root.tabs;
@@ -100,6 +116,8 @@ export component AppWindow inherits Window {
                     }
 
                     Navbar {
+                        // โปร่งใสให้พื้นน้ำเงินของ header แสดงทะลุ (URL pill ยังเป็นโทนเข้ม)
+                        background: transparent;
                         current-url: root.current-url;
                         shields-active: root.shields-active;
                         has-titlebar-spacing: false; // It's below the TabBar now, so no need for titlebar spacing
@@ -146,7 +164,6 @@ export component AppWindow inherits Window {
                 border-width: 0px;
                 clip: true;
                 vertical-stretch: 1;
-
                 Webview {
                     current-url: root.current-url;
                     current-title: root.current-title;

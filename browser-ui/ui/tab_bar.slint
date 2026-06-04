@@ -9,6 +9,7 @@ export struct TabDragState {
 }
 
 export global TabDrag {
+   
     in-out property <TabDragState> state: { from: -1, to: -1, delta-x: 0px, active: false };
     // Locks out tab-drag processing once vertical window-drag has been initiated
     in-out property <bool> window-drag-mode: false;
@@ -20,51 +21,53 @@ component TabGhost inherits Rectangle {
     in property <bool> active;
     in property <length> slot-width;
 
-    width: root.slot-width;
-    height: 36px; /* Connected tab height */
-    opacity: 0.8;
+    in property <bool> has-favicon;
+    in property <image> favicon;
 
-    // Connected tab background
+    width: root.slot-width;
+    height: 30px; /* Compact floating tab */
+    opacity: 0.85;
+
+    // Dragged copy — แสดงเป็น pill เด่นเสมอ
     background_capsule := Rectangle {
-        width: parent.width;
-        height: parent.height;
-        border-top-left-radius: 8px;
-        border-top-right-radius: 8px;
-        border-bottom-left-radius: 0px;
-        border-bottom-right-radius: 0px;
-        background: root.active ? #2B2D31 : #2B2D31D0;
+        x: 4px;
+        y: 2px;
+        width: parent.width - 8px;
+        height: parent.height - 4px;
+        border-radius: 7px;
+        background: #FFFFFF3D;
         border-width: 0px;
 
         drop-shadow-color: #00000040;
-        drop-shadow-blur: 4px;
+        drop-shadow-blur: 5px;
         drop-shadow-offset-y: 1px;
     }
 
 
     HorizontalLayout {
-        padding-left: root.slot-width > 75px ? 10px : 0px;
-        padding-right: root.slot-width > 75px ? 8px : 0px;
-        spacing: root.slot-width > 75px ? 6px : 0px;
-        alignment: center;
+        padding-left: root.slot-width > 70px ? 14px : 4px;
+        padding-right: root.slot-width > 70px ? 10px : 4px;
+        spacing: root.slot-width > 70px ? 8px : 0px;
 
         ProIcon {
-            icon:
+            icon: root.has-favicon ? root.favicon : (
                 root.site-type == "brave" ? @image-url("icons/solar/shield.svg") :
                 root.site-type == "arc" ? @image-url("icons/solar/arc.svg") :
                 root.site-type == "google" ? @image-url("icons/solar/google.svg") :
-                @image-url("icons/solar/globe.svg");
-            icon-color: #FFFFFF;
-            fill-color: root.site-type == "google" ? #FFFFFF : transparent;
-            icon-width: 14px;
-            icon-height: 14px;
+                @image-url("icons/solar/globe.svg")
+            );
+            icon-color: root.has-favicon ? #FFFFFF : #FFFFFF;
+            fill-color: (!root.has-favicon && root.site-type == "google") ? #FFFFFF : transparent;
+            icon-width: 13px;
+            icon-height: 13px;
             stroke-width: 1.6px;
             y: (parent.height - self.height) / 2;
         }
 
-        if root.slot-width > 75px : Text {
+        if root.slot-width > 70px : Text {
             text: root.title;
             color: #FFFFFF;
-            font-size: 11.5px;
+            font-size: 11px;
             font-weight: root.active ? 600 : 500;
             vertical-alignment: center;
             overflow: elide;
@@ -73,12 +76,17 @@ component TabGhost inherits Rectangle {
     }
 }
 
+// โทนข้อความ/ไอคอนของ tab บนพื้นน้ำเงิน: active = ขาวเต็ม, hover = ขาวจาง,
+// idle = ขาวโปร่ง (อ่านง่ายแต่ไม่เด่นเกินตัว active)
+
 component TabItem inherits Rectangle {
     in property <int> tab-index;
     in property <string> title;
     in property <bool> active;
     in property <bool> is-pinned;
     in property <string> site-type;
+    in property <bool> has-favicon;
+    in property <image> favicon;
     in property <bool> is-drag-source;
     in property <length> slot-width: 120px;
 
@@ -90,12 +98,12 @@ component TabItem inherits Rectangle {
 
     width: root.slot-width;
     animate width { duration: 150ms; easing: ease-out; }
-    height: 36px; /* Connected tab height */
+    height: 30px; /* Compact floating tab */
 
-    // True when mouse is over the close button zone (right 24px of wide tab, or anywhere on narrow tab while hovered)
+    // True when mouse is over the close button zone (right 22px of wide tab, or anywhere on narrow tab while hovered)
     property <bool> mouse-on-close: touch-area.has-hover && !root.is-pinned && (
-        root.slot-width > 75px
-            ? touch-area.mouse-x >= root.slot-width - 24px
+        root.slot-width > 70px
+            ? touch-area.mouse-x >= root.slot-width - 22px
             : true
     );
 
@@ -107,45 +115,55 @@ component TabItem inherits Rectangle {
         height: parent.height;
         opacity: root.is-drag-source ? 0.0 : 1.0;
 
+        // เส้นคั่นแนวตั้งระหว่าง tab (สไตล์ Brave) — ซ่อนเมื่อ active หรือ hover
+        if !root.active && !touch-area.has-hover : Rectangle {
+            width: 1px;
+            height: 15px;
+            background: #FFFFFF33;
+            x: parent.width - 1px;
+            y: (parent.height - self.height) / 2;
+        }
+
         background_capsule := Rectangle {
-            x: 0px;
-            y: 0px;
-            width: parent.width;
-            height: parent.height;
-            border-top-left-radius: 8px;
-            border-top-right-radius: 8px;
-            border-bottom-left-radius: 0px;
-            border-bottom-right-radius: 0px;
+            x: 4px;
+            y: 2px;
+            width: parent.width - 8px;
+            height: parent.height - 4px;
+            border-radius: 7px;
+            // active = แผ่นทึบจางๆ (เหมือน tab ที่เลือกใน Brave) ตัวอื่นโปร่งใส โผล่ตอน hover
             background:
-                root.active ? #2B2D31 :
-                touch-area.has-hover ? #FFFFFF12 : transparent;
+                root.active ? #FFFFFF2B :
+                touch-area.has-hover ? #FFFFFF17 : transparent;
             border-width: 0px;
+            animate background { duration: 120ms; }
         }
 
         HorizontalLayout {
-            padding-left: root.slot-width > 75px ? 10px : 0px;
-            padding-right: root.slot-width > 75px ? 8px : 0px;
-            spacing: root.slot-width > 75px ? 6px : 0px;
-            alignment: center;
+            // ชิดซ้าย: favicon → title → (spacer) → ปุ่มปิด ทางขวา
+            padding-left: root.slot-width > 70px ? 14px : 4px;
+            padding-right: root.slot-width > 70px ? 10px : 4px;
+            spacing: root.slot-width > 70px ? 8px : 0px;
+            // Removed alignment: start to let horizontal-stretch push the close button to the right
 
-            if root.slot-width > 75px || !touch-area.has-hover : ProIcon {
-                icon:
+            if root.slot-width > 70px || !touch-area.has-hover : ProIcon {
+                icon: root.has-favicon ? root.favicon : (
                     root.site-type == "brave" ? @image-url("icons/solar/shield.svg") :
                     root.site-type == "arc" ? @image-url("icons/solar/arc.svg") :
                     root.site-type == "google" ? @image-url("icons/solar/google.svg") :
-                    @image-url("icons/solar/globe.svg");
-                icon-color: root.active ? #FFFFFF : (touch-area.has-hover ? #E5E7EB : #9CA3AF);
-                fill-color: root.site-type == "google" && root.active ? #FFFFFF : (root.site-type == "google" ? #9CA3AF : transparent);
-                icon-width: 14px;
-                icon-height: 14px;
+                    @image-url("icons/solar/globe.svg")
+                );
+                icon-color: root.has-favicon ? #FFFFFF : (root.active ? #FFFFFF : (touch-area.has-hover ? #FFFFFFEC : #FFFFFFB3));
+                fill-color: (!root.has-favicon && root.site-type == "google" && root.active) ? #FFFFFF : ((!root.has-favicon && root.site-type == "google") ? #FFFFFFB3 : transparent);
+                icon-width: 13px;
+                icon-height: 13px;
                 stroke-width: 1.6px;
                 y: (parent.height - self.height) / 2;
             }
 
-            if root.slot-width > 75px : Text {
+            if root.slot-width > 70px : Text {
                 text: root.title;
-                color: root.active ? #FFFFFF : (touch-area.has-hover ? #E5E7EB : #9CA3AF);
-                font-size: 11.5px;
+                color: root.active ? #FFFFFF : (touch-area.has-hover ? #FFFFFFEC : #FFFFFFB3);
+                font-size: 11px;
                 font-weight: root.active ? 600 : 500;
                 vertical-alignment: center;
                 overflow: elide;
@@ -154,21 +172,20 @@ component TabItem inherits Rectangle {
 
             // Close button — visual only, NO nested TouchArea (click handled by touch-area via position check)
             if !root.is-pinned && (
-                (root.slot-width > 75px && (root.active || touch-area.has-hover)) ||
-                (root.slot-width <= 75px && touch-area.has-hover)
+                (root.slot-width > 70px && (root.active || touch-area.has-hover)) ||
+                (root.slot-width <= 70px && touch-area.has-hover)
             ) : Rectangle {
-                width: 16px;
-                height: 16px;
-                border-radius: 8px;
-                background: root.mouse-on-close ? #FFFFFF20 : transparent;
+                width: 15px;
+                height: 15px;
+                border-radius: 7px;
+                background: root.mouse-on-close ? #FFFFFF2E : transparent;
                 y: (parent.height - self.height) / 2;
 
                 ProIcon {
                     icon: @image-url("icons/solar/cancel.svg");
-                    icon-color: root.active ? #FFFFFF : (root.mouse-on-close ? #FFFFFF : #9CA3AF);
-                    icon-width: 10px;
-                    icon-height: 10px;
-                    stroke-width: 1.5px;
+                    icon-color: root.active ? #FFFFFF : (root.mouse-on-close ? #FFFFFF : #FFFFFFB3);
+                    icon-width: 14px;
+                    icon-height: 14px;
                     y: (parent.height - self.height) / 2;
                 }
             }
@@ -221,16 +238,16 @@ component TabItem inherits Rectangle {
 component AddTabButton inherits Rectangle {
     callback activated();
 
-    width: 28px;
-    height: 28px;
-    border-radius: 14px;
-    background: touch-area.has-hover ? #FFFFFF15 : transparent;
+    width: 26px;
+    height: 26px;
+    border-radius: 13px;
+    background: touch-area.has-hover ? #FFFFFF22 : transparent;
 
     ProIcon {
         icon: @image-url("icons/solar/plus.svg");
-        icon-color: touch-area.has-hover ? #FFFFFF : #9CA3AF;
-        icon-width: 13px;
-        icon-height: 13px;
+        icon-color: touch-area.has-hover ? #FFFFFF : #FFFFFFC4;
+        icon-width: 12px;
+        icon-height: 12px;
         stroke-width: 1.6px;
         y: (parent.height - self.height) / 2;
     }
@@ -259,8 +276,8 @@ export component TabBar inherits Rectangle {
     background: transparent;
 
     property <length> available-width: root.width - (root.has-titlebar-spacing ? 100px : 20px) - 20px;
-    property <length> max-tab-width: 160px;
-    property <length> min-tab-width: 44px;
+    property <length> max-tab-width: 130px;
+    property <length> min-tab-width: 40px;
     
     // Max island width
     property <length> max-island-width: 800px;
@@ -320,8 +337,8 @@ export component TabBar inherits Rectangle {
     tab-flickable := Flickable {
         width: parent.width - (root.has-titlebar-spacing ? 80px : 12px) - 12px;
         x: root.has-titlebar-spacing ? 80px : 12px;
-        height: 36px;
-        y: 4px; // Push down so it touches the bottom edge (Navbar)
+        height: 30px;
+        y: 5px; // Center the 30px tabs within the 40px bar
         interactive: false;
         viewport-width: Math.max(root.tabs.length * root.calculated-tab-width + 36px, tab-flickable.width);
 
@@ -359,6 +376,8 @@ export component TabBar inherits Rectangle {
                 active: tab.active;
                 is-pinned: tab.is_pinned;
                 site-type: tab.site_type;
+                has-favicon: tab.has_favicon;
+                favicon: tab.favicon;
                 is-drag-source: TabDrag.state.active && TabDrag.state.from == idx;
                 slot-width: root.calculated-tab-width;
 
@@ -430,6 +449,8 @@ export component TabBar inherits Rectangle {
                 title: root.tabs[TabDrag.state.from].title;
                 site-type: root.tabs[TabDrag.state.from].site_type;
                 active: root.tabs[TabDrag.state.from].active;
+                has-favicon: root.tabs[TabDrag.state.from].has_favicon;
+                favicon: root.tabs[TabDrag.state.from].favicon;
                 slot-width: root.calculated-tab-width;
             }
 

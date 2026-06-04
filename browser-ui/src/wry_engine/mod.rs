@@ -76,45 +76,59 @@ impl WryEngine {
         self.update_bounds(window);
     }
 
+    /// คำนวณ bounds ของ webview จากขนาด logical ของหน้าต่าง + tab_layout ปัจจุบัน.
+    /// รวม magic number ของ chrome ไว้ที่เดียว เพื่อให้ update_bounds และ
+    /// resize_from_event ใช้ค่าตรงกัน (เดิม resize ใช้ค่าคงที่ 76 ไม่สน layout).
+    fn compute_bounds(&self, logical_w: f64, logical_h: f64) -> Rect {
+        let mut x = 0.0;
+        let mut y = 0.0;
+        let mut w = logical_w;
+        let mut h = logical_h;
+
+        match self.tab_layout.as_str() {
+            "top" => {
+                // TabBar (40) + Navbar (40) + WavyEdge (12)
+                y = 92.0;
+                h = logical_h - 92.0;
+            }
+            "bottom" => {
+                y = 40.0; // Navbar only
+                h = logical_h - 80.0; // Navbar (40) + TabBar (40)
+            }
+            "left" => {
+                x = 230.0;
+                y = 40.0; // Navbar only
+                w = logical_w - 230.0;
+                h = logical_h - 40.0;
+            }
+            "right" => {
+                x = 0.0;
+                y = 40.0; // Navbar only
+                w = logical_w - 230.0;
+                h = logical_h - 40.0;
+            }
+            _ => {}
+        }
+
+        // wry บน macOS วาง webview ด้วยพิกัด bottom-left origin (Cocoa) ส่วน y ที่
+        // คำนวณข้างบนเป็น top-left (ระยะจากขอบบน) จึงต้องแปลงกลับ ไม่งั้น webview
+        // จะไปโผล่ผิดด้าน (chrome หายไป + เกิดแถบว่างที่ก้นหน้าต่าง).
+        #[cfg(target_os = "macos")]
+        let y = logical_h - (y + h);
+
+        Rect {
+            position: wry::dpi::Position::Logical(wry::dpi::LogicalPosition::new(x, y)),
+            size: wry::dpi::Size::Logical(wry::dpi::LogicalSize::new(w.max(1.0), h.max(1.0))),
+        }
+    }
+
     fn update_bounds(&mut self, window: &AppWindow) {
         if let Some(size) = window.window().with_winit_window(|w: &i_slint_backend_winit::winit::window::Window| w.inner_size()) {
             let scale = window.window().with_winit_window(|w: &i_slint_backend_winit::winit::window::Window| w.scale_factor()).unwrap_or(1.0);
             let logical_w = size.width as f64 / scale;
             let logical_h = size.height as f64 / scale;
-            
-            let mut x = 0.0;
-            let mut y = 0.0;
-            let mut w = logical_w;
-            let mut h = logical_h;
 
-            match self.tab_layout.as_str() {
-                "top" => {
-                    y = 80.0; // TabBar (40) + Navbar (40)
-                    h = logical_h - 80.0;
-                }
-                "bottom" => {
-                    y = 40.0; // Navbar only
-                    h = logical_h - 80.0; // Navbar (40) + TabBar (40)
-                }
-                "left" => {
-                    x = 230.0;
-                    y = 40.0; // Navbar only
-                    w = logical_w - 230.0;
-                    h = logical_h - 40.0;
-                }
-                "right" => {
-                    x = 0.0;
-                    y = 40.0; // Navbar only
-                    w = logical_w - 230.0;
-                    h = logical_h - 40.0;
-                }
-                _ => {}
-            }
-
-            self.bounds = Rect {
-                position: wry::dpi::Position::Logical(wry::dpi::LogicalPosition::new(x, y)),
-                size: wry::dpi::Size::Logical(wry::dpi::LogicalSize::new(w.max(1.0), h.max(1.0))),
-            };
+            self.bounds = self.compute_bounds(logical_w, logical_h);
 
             if let Some(tab) = self.tabs.get(self.active_index) {
                 if let Some(wv) = &tab.webview {
@@ -286,16 +300,11 @@ impl WryEngine {
     pub fn resize_from_event(&mut self, physical_size: i_slint_backend_winit::winit::dpi::PhysicalSize<u32>, scale: f64) {
         let logical_w = physical_size.width as f64 / scale;
         let logical_h = physical_size.height as f64 / scale;
-        
-        #[cfg(target_os = "macos")]
-        let y_pos = 0.0;
-        #[cfg(not(target_os = "macos"))]
-        let y_pos = 76.0;
-        
-        self.bounds = Rect {
-            position: wry::dpi::Position::Logical(wry::dpi::LogicalPosition::new(0.0, y_pos)),
-            size: wry::dpi::Size::Logical(wry::dpi::LogicalSize::new(logical_w, (logical_h - 76.0).max(1.0))),
-        };
+
+        // ใช้ compute_bounds ตัวเดียวกับ update_bounds เพื่อให้ y-offset/layout
+        // ตรงกันทุกเส้นทาง (เดิม resize hardcode 76 + y=0 ไม่สน tab_layout จึงไป
+        // วาง webview ทับขอบน้ำเงิน 12px ใต้ navbar ทำให้ขอบหาย)
+        self.bounds = self.compute_bounds(logical_w, logical_h);
 
         if let Some(tab) = self.tabs.get(self.active_index) {
             if let Some(wv) = &tab.webview {

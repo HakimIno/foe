@@ -82,11 +82,11 @@ export component ChromeNavButton inherits Rectangle {
     width: 28px;
     height: 28px;
     border-radius: 14px;
-    background: touch-area.has-hover ? #FFFFFF15 : transparent;
+    background: touch-area.has-hover ? #FFFFFF22 : transparent;
 
     ProIcon {
         icon: root.icon;
-        icon-color: touch-area.has-hover ? #FFFFFF : #9CA3AF;
+        icon-color: touch-area.has-hover ? #FFFFFF : #FFFFFFC4;
         icon-width: 15px;  /* Enlarged from 11px for crisp visibility */
         icon-height: 15px; /* Enlarged from 11px for crisp visibility */
         stroke-width: 1.6px;
@@ -95,5 +95,37 @@ export component ChromeNavButton inherits Rectangle {
 
     touch-area := TouchArea {
         clicked => { root.activated(); }
+    }
+}
+
+// Decorative scalloped (sine-wave) edge — ทำเป็นแถบเส้นหยักสีขาวสำหรับวางคั่น
+// ระหว่าง chrome สีน้ำเงินกับ webview (สไตล์ Arc). วาดด้วย Path tile ต่อ
+// period ละ 16px แล้ว repeat ให้เต็มความกว้าง (responsive ตาม resize).
+export component WavyEdge inherits Rectangle {
+    in property <brush> line-color: #FFFFFFDE;
+    in property <length> stroke-w: 1.5px;
+
+    height: 12px;
+    clip: true;
+
+    // +1 tile กันขอบขวาว่างตอนหารไม่ลงตัว
+    property <int> tile-count: Math.ceil(self.width / 16px) + 1;
+
+    for i in root.tile-count : Path {
+        x: i * 16px;
+        y: 0px;
+        width: 16px;
+        height: parent.height;
+        viewbox-width: 16;
+        viewbox-height: 12;
+        fill: transparent;
+        stroke: root.line-color;
+        stroke-width: root.stroke-w;
+
+        // หนึ่ง period ของคลื่น แนบขอบล่างของแถบ (แกนกลาง y=8.5 จาก 12) ให้เส้น
+        // ไปอยู่ติดรอยต่อ chrome↔webview ไม่ลอยกลางแถบ — amplitude ~2.5px
+        MoveTo { x: 0; y: 8.5; }
+        QuadraticTo { control-x: 4; control-y: 3.5; x: 8; y: 8.5; }
+        QuadraticTo { control-x: 12; control-y: 13.5; x: 16; y: 8.5; }
     }
 }

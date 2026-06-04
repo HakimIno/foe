@@ -6,6 +6,8 @@ export struct TabInfo {
     active: bool,
     is_pinned: bool,
     site_type: string,
+    has_favicon: bool,
+    favicon: image,
 }
 
 export struct DownloadItem {
@@ -18,6 +20,9 @@ component SidebarTab inherits Rectangle {
     in property <string> title;
     in property <bool> active;
     in property <bool> is-pinned;
+    in property <string> site-type;
+    in property <bool> has-favicon;
+    in property <image> favicon;
     
     callback clicked();
     callback closed();
@@ -44,8 +49,14 @@ component SidebarTab inherits Rectangle {
         }
 
         ProIcon {
-            icon: @image-url("icons/solar/document.svg");
-            icon-color: root.active ? #FFFFFF : #71717A;
+            icon: root.has-favicon ? root.favicon : (
+                root.site-type == "brave" ? @image-url("icons/solar/shield.svg") :
+                root.site-type == "arc" ? @image-url("icons/solar/arc.svg") :
+                root.site-type == "google" ? @image-url("icons/solar/google.svg") :
+                @image-url("icons/solar/document.svg")
+            );
+            icon-color: root.has-favicon ? #FFFFFF : (root.active ? #FFFFFF : #71717A);
+            fill-color: (!root.has-favicon && root.site-type == "google") ? #FFFFFF : transparent;
             icon-width: 14px;
             icon-height: 14px;
             stroke-width: 1.6px;
@@ -168,6 +179,9 @@ export component Sidebar inherits Rectangle {
                 title: tab.title;
                 active: tab.active;
                 is-pinned: tab.is_pinned;
+                site-type: tab.site_type;
+                has-favicon: tab.has_favicon;
+                favicon: tab.favicon;
                 clicked => { root.select_tab(idx); }
                 closed => { root.close_tab(idx); }
             }
