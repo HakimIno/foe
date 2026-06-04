@@ -1,4 +1,4 @@
-import { ProIcon, ProIconKind, MinimalButton, MinimalIconButton } from "common.slint";
+import { ProIcon, MinimalButton, MinimalIconButton } from "common.slint";
 
 export struct TabInfo {
     title: string,
@@ -44,7 +44,7 @@ component SidebarTab inherits Rectangle {
         }
 
         ProIcon {
-            icon: ProIconKind.Document;
+            icon: @image-url("icons/solar/document.svg");
             icon-color: root.active ? #FFFFFF : #71717A;
             icon-width: 14px;
             icon-height: 14px;
@@ -70,7 +70,7 @@ component SidebarTab inherits Rectangle {
         background: touch-close.has-hover ? #2E2E33 : transparent;
 
         ProIcon {
-            icon: ProIconKind.Cancel;
+            icon: @image-url("icons/solar/cancel.svg");
             icon-color: #A0A0AA;
             icon-width: 10px;
             icon-height: 10px;
@@ -128,7 +128,7 @@ export component Sidebar inherits Rectangle {
                     border-color: #2D2D30;
                     
                     ProIcon {
-                        icon: ProIconKind.Person;
+                        icon: @image-url("icons/solar/person.svg");
                         icon-color: #D4D4D8;
                         icon-width: 14px;
                         icon-height: 14px;
@@ -145,7 +145,7 @@ export component Sidebar inherits Rectangle {
             }
 
             MinimalIconButton {
-                icon: ProIconKind.Menu;
+                icon: @image-url("icons/solar/menu.svg");
                 clicked => { root.toggle_downloader(); }
             }
         }
@@ -252,7 +252,7 @@ export component Sidebar inherits Rectangle {
                 HorizontalLayout {
                     spacing: 8px;
                     ProIcon {
-                        icon: ProIconKind.Shield;
+                        icon: @image-url("icons/solar/shield.svg");
                         icon-color: root.shields-active ? #FFFFFF : #71717A;
                         icon-width: 14px;
                         icon-height: 14px;

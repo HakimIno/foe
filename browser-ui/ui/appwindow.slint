@@ -1,4 +1,4 @@
-import { TabInfo, DownloadItem } from "sidebar.slint";
+import { TabInfo, DownloadItem, Sidebar } from "sidebar.slint";
 import { TabBar } from "tab_bar.slint";
 import { Navbar } from "navbar.slint";
 import { Webview } from "webview.slint";
@@ -28,8 +28,10 @@ export component AppWindow inherits Window {
     callback command_bar_submit(string);
     callback start_drag_window();
     callback double_click_titlebar();
+    callback tab_layout_changed(string);
 
     // Public UI State Bindings
+    in-out property <string> tab-layout: "top"; // "top", "left", "right", "bottom"
     in-out property <string> current-url: "about:newtab";
     in-out property <string> current-title: "Google";
     in-out property <image> frame;
@@ -57,52 +59,124 @@ export component AppWindow inherits Window {
     }
 
     // Main layout: Responsive stacked components
-    VerticalLayout {
-        width: parent.width;
-        height: parent.height;
-        padding-left: 0px;
-        padding-right: 0px;
-        padding-top: 0px;
-        padding-bottom: 0px;
-        spacing: 0px;
-
-        TabBar {
+    HorizontalLayout {
+        if root.tab-layout == "left" : Sidebar {
             tabs: root.tabs;
-            has-titlebar-spacing: root.has-titlebar-spacing;
+            downloads: root.downloads;
+            show-downloader-panel: root.show-downloader-panel;
+            blocked-count: root.blocked-count;
+            shields-active: root.shields-active;
             select_tab(idx) => { root.select_tab(idx); }
             close_tab(idx) => { root.close_tab(idx); }
             new_tab() => { root.new_tab(); }
-            move_tab(from, to) => { root.move_tab(from, to); }
-            start_drag_window() => { root.start_drag_window(); }
-            double_click_titlebar() => { root.double_click_titlebar(); }
+            toggle_downloader() => { root.show-downloader-panel = !root.show-downloader-panel; }
         }
 
-        Navbar {
-            current-url: root.current-url;
-            shields-active: root.shields-active;
-            has-titlebar-spacing: root.has-titlebar-spacing;
-            navigate_to(url) => { root.navigate_to(url); }
-            toggle_shields() => { root.toggle_shields(); }
-            toggle_downloads() => { root.show-downloader-panel = !root.show-downloader-panel; }
-            back_clicked() => { root.back_clicked(); }
-            forward_clicked() => { root.forward_clicked(); }
-            reload_clicked() => { root.reload_clicked(); }
-        }
-
-        // Row 3: Webview full-width viewport
-        Rectangle {
-            background: #1E1F22;
-            border-radius: 0px;
-            border-width: 0px;
-            clip: true;
+        VerticalLayout {
+            horizontal-stretch: 1;
             vertical-stretch: 1;
+            padding-left: 0px;
+            padding-right: 0px;
+            padding-top: 0px;
+            padding-bottom: 0px;
+            spacing: 0px;
 
-            Webview {
-                current-url: root.current-url;
-                current-title: root.current-title;
-                frame: root.frame;
-                search_submitted(query) => { root.navigate_to(query); }
+            if root.tab-layout == "top" : Rectangle {
+                background: #2B2D31; // Unified modern header background
+                vertical-stretch: 0;
+
+                VerticalLayout {
+                    spacing: 0px;
+
+                    TabBar {
+                        tabs: root.tabs;
+                        has-titlebar-spacing: root.has-titlebar-spacing;
+                        select_tab(idx) => { root.select_tab(idx); }
+                        close_tab(idx) => { root.close_tab(idx); }
+                        new_tab() => { root.new_tab(); }
+                        move_tab(from, to) => { root.move_tab(from, to); }
+                        start_drag_window() => { root.start_drag_window(); }
+                        double_click_titlebar() => { root.double_click_titlebar(); }
+                    }
+
+                    Navbar {
+                        current-url: root.current-url;
+                        shields-active: root.shields-active;
+                        has-titlebar-spacing: false; // It's below the TabBar now, so no need for titlebar spacing
+                        navigate_to(url) => { root.navigate_to(url); }
+                        toggle_shields() => { root.toggle_shields(); }
+                        toggle_downloads() => { root.show-downloader-panel = !root.show-downloader-panel; }
+                        back_clicked() => { root.back_clicked(); }
+                        forward_clicked() => { root.forward_clicked(); }
+                        reload_clicked() => { root.reload_clicked(); }
+                        toggle_layout() => {
+                            if root.tab-layout == "top" { root.tab-layout = "left"; }
+                            else if root.tab-layout == "left" { root.tab-layout = "bottom"; }
+                            else if root.tab-layout == "bottom" { root.tab-layout = "right"; }
+                            else { root.tab-layout = "top"; }
+                            root.tab_layout_changed(root.tab-layout);
+                        }
+                    }
+                }
             }
+
+            if root.tab-layout != "top" : Navbar {
+                current-url: root.current-url;
+                shields-active: root.shields-active;
+                has-titlebar-spacing: root.has-titlebar-spacing;
+                navigate_to(url) => { root.navigate_to(url); }
+                toggle_shields() => { root.toggle_shields(); }
+                toggle_downloads() => { root.show-downloader-panel = !root.show-downloader-panel; }
+                back_clicked() => { root.back_clicked(); }
+                forward_clicked() => { root.forward_clicked(); }
+                reload_clicked() => { root.reload_clicked(); }
+                toggle_layout() => {
+                    if root.tab-layout == "top" { root.tab-layout = "left"; }
+                    else if root.tab-layout == "left" { root.tab-layout = "bottom"; }
+                    else if root.tab-layout == "bottom" { root.tab-layout = "right"; }
+                    else { root.tab-layout = "top"; }
+                    root.tab_layout_changed(root.tab-layout);
+                }
+            }
+
+            // Webview full-width viewport
+            Rectangle {
+                background: #1E1F22;
+                border-radius: 0px;
+                border-width: 0px;
+                clip: true;
+                vertical-stretch: 1;
+
+                Webview {
+                    current-url: root.current-url;
+                    current-title: root.current-title;
+                    frame: root.frame;
+                    search_submitted(query) => { root.navigate_to(query); }
+                }
+            }
+
+            if root.tab-layout == "bottom" : TabBar {
+                tabs: root.tabs;
+                has-titlebar-spacing: false;
+                select_tab(idx) => { root.select_tab(idx); }
+                close_tab(idx) => { root.close_tab(idx); }
+                new_tab() => { root.new_tab(); }
+                move_tab(from, to) => { root.move_tab(from, to); }
+                start_drag_window() => { root.start_drag_window(); }
+                double_click_titlebar() => { root.double_click_titlebar(); }
+            }
+        }
+
+        if root.tab-layout == "right" : Sidebar {
+            tabs: root.tabs;
+            downloads: root.downloads;
+            show-downloader-panel: root.show-downloader-panel;
+            blocked-count: root.blocked-count;
+            shields-active: root.shields-active;
+            select_tab(idx) => { root.select_tab(idx); }
+            close_tab(idx) => { root.close_tab(idx); }
+            new_tab() => { root.new_tab(); }
+            toggle_downloader() => { root.show-downloader-panel = !root.show-downloader-panel; }
         }
     }
 

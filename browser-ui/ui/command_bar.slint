@@ -1,4 +1,4 @@
-import { ProIcon, ProIconKind } from "common.slint";
+import { ProIcon } from "common.slint";
 
 export component CommandBar inherits Rectangle {
     in-out property <string> command-text;
@@ -26,7 +26,7 @@ export component CommandBar inherits Rectangle {
             spacing: 12px;
 
             ProIcon {
-                icon: ProIconKind.Search;
+                icon: @image-url("icons/solar/search.svg");
                 icon-color: #71717A;
                 icon-width: 16px;
                 icon-height: 16px;

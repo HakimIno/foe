@@ -1,7 +1,7 @@
-import { ProIcon, ProIconKind } from "common.slint";
+import { ProIcon } from "common.slint";
 
 component FeatureHint inherits HorizontalLayout {
-    in property <ProIconKind> icon;
+    in property <image> icon;
     in property <string> label;
 
     spacing: 5px;
@@ -96,7 +96,7 @@ export component Webview inherits Rectangle {
                     spacing: 12px;
 
                     ProIcon {
-                        icon: ProIconKind.Search;
+                        icon: @image-url("icons/solar/search.svg");
                         icon-color: search-input.has-focus ? #A1A1AA : #71717A;
                         icon-width: 15px;
                         icon-height: 15px;
@@ -131,14 +131,14 @@ export component Webview inherits Rectangle {
             spacing: 14px;
 
             FeatureHint {
-                icon: ProIconKind.Shield;
+                icon: @image-url("icons/solar/shield.svg");
                 label: "Shields เปิดอยู่";
             }
 
             HintDivider {}
 
             FeatureHint {
-                icon: ProIconKind.Lock;
+                icon: @image-url("icons/solar/lock.svg");
                 label: "ไม่บันทึกประวัติ";
             }
 

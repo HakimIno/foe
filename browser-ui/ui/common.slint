@@ -1,9 +1,5 @@
-import { ProIconKind, ProIconLookup } from "icons/icons.generated.slint";
-
-export { ProIconKind } from "icons/icons.generated.slint";
-
 export component ProIcon inherits Rectangle {
-    in property <ProIconKind> icon;
+    in property <image> icon;
     in property <color> icon-color: #71717A;
     in property <length> icon-width: 15px;
     in property <length> icon-height: 15px;
@@ -13,22 +9,18 @@ export component ProIcon inherits Rectangle {
     width: 24px;
     height: 24px;
 
-    Path {
+    Image {
         width: root.icon-width;
         height: root.icon-height;
-        stroke: root.icon-color;
-        stroke-width: root.stroke-width;
-        fill: root.fill-color;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        commands: ProIconLookup.path(root.icon);
+        source: root.icon;
+        colorize: root.icon-color;
         x: (parent.width - self.width) / 2;
         y: (parent.height - self.height) / 2;
     }
 }
 
 export component MinimalIconButton inherits Rectangle {
-    in property <ProIconKind> icon;
+    in property <image> icon;
     in property <color> active-color: #18181B;
     in property <color> inactive-color: #71717A;
     in property <bool> active: false;
@@ -84,7 +76,7 @@ export component MinimalButton inherits Rectangle {
 }
 
 export component ChromeNavButton inherits Rectangle {
-    in property <ProIconKind> icon;
+    in property <image> icon;
     callback activated();
 
     width: 28px;

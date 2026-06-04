@@ -1,4 +1,4 @@
-import { ProIcon, ProIconKind, ChromeNavButton } from "common.slint";
+import { ProIcon, ChromeNavButton } from "common.slint";
 
 export component Navbar inherits Rectangle {
     in-out property <string> current-url;
@@ -11,68 +11,68 @@ export component Navbar inherits Rectangle {
     callback back_clicked();
     callback forward_clicked();
     callback reload_clicked();
+    callback toggle_layout();
 
-    height: 36px; /* 36px height to maintain 76px logical height (40px + 36px) */
-    background: #1E1F22; /* Unified dark window background */
+    height: 40px;
+    background: #2B2D31;
 
     HorizontalLayout {
-        padding-left: 12px;
+        padding-left: root.has-titlebar-spacing ? 80px : 12px; // Align with TabBar if no TabBar is present
         padding-right: 12px;
         spacing: 12px;
 
-        // 1. Left Section: Navigation controls (Vertically Centered)
+        // 1. Left Section: Navigation controls
         VerticalLayout {
             alignment: center;
             HorizontalLayout {
                 spacing: 4px;
 
-                // Sidebar Toggle panel button (Arc icon represents panels)
                 ChromeNavButton {
-                    icon: ProIconKind.Arc;
+                    icon: @image-url("icons/solar/arc.svg");
                     activated => { }
                 }
 
                 ChromeNavButton {
-                    icon: ProIconKind.ArrowLeft;
+                    icon: @image-url("icons/solar/arrow-left.svg");
                     activated => { root.back_clicked(); }
                 }
 
                 ChromeNavButton {
-                    icon: ProIconKind.ArrowRight;
+                    icon: @image-url("icons/solar/arrow-right.svg");
                     activated => { root.forward_clicked(); }
                 }
 
                 ChromeNavButton {
-                    icon: ProIconKind.ArrowClockwise;
+                    icon: @image-url("icons/solar/refresh.svg");
                     activated => { root.reload_clicked(); }
                 }
             }
         }
 
-        // 2. Middle Section: URL Search Bar (Vertically Centered)
+        // 2. Middle Section: URL Search Bar
         VerticalLayout {
             alignment: center;
             horizontal-stretch: 1;
             Rectangle {
-                height: 28px;
-                background: #2C2D30; /* Lighter container background */
-                border-radius: 8px; /* Smooth Firefox roundness */
-                border-width: 1.5px;
-                border-color: text-input.has-focus ? #00F0FF : #3F3F46; /* Cyan glowing border on focus */
+                height: 32px;
+                background: text-input.has-focus ? #2C2D30 : #1E1F22; // Darker background for URL
+                border-radius: 16px; // Full pill shape for URL input
+                border-width: 1px;
+                border-color: text-input.has-focus ? #00F0FF : #3F3F46;
                 clip: true;
 
                 HorizontalLayout {
-                    padding-left: 8px;
+                    padding-left: 10px;
                     padding-right: 6px;
                     spacing: 8px;
 
-                    // Google Favicon + Dropdown Arrow (Firefox style)
+                    // Google Favicon + Dropdown Arrow
                     HorizontalLayout {
                         spacing: 2px;
-                        horizontal-stretch: 0; /* Prevent container from stretching */
+                        horizontal-stretch: 0;
                         y: (parent.height - self.height) / 2;
                         ProIcon {
-                            icon: ProIconKind.Google;
+                            icon: @image-url("icons/solar/google.svg");
                             icon-color: #FFFFFF;
                             fill-color: #FFFFFF;
                             icon-width: 14px;
@@ -96,7 +96,7 @@ export component Navbar inherits Rectangle {
                     }
 
                     ProIcon {
-                        icon: ProIconKind.Lock;
+                        icon: @image-url("icons/solar/lock.svg");
                         icon-color: #9CA3AF;
                         icon-width: 14px;
                         icon-height: 14px;
@@ -125,14 +125,14 @@ export component Navbar inherits Rectangle {
 
                     // Shields button inside URL Area
                     Rectangle {
-                        width: 22px;
-                        height: 22px;
-                        border-radius: 11px;
+                        width: 26px;
+                        height: 26px;
+                        border-radius: 13px;
                         background: touch-shields.has-hover ? #FFFFFF15 : (root.shields-active ? #EF444415 : transparent);
                         y: (parent.height - self.height) / 2;
                         
                         ProIcon {
-                            icon: ProIconKind.Shield;
+                            icon: @image-url("icons/solar/shield.svg");
                             icon-color: root.shields-active ? #EF4444 : #9CA3AF;
                             icon-width: 14px;
                             icon-height: 14px;
@@ -148,30 +148,30 @@ export component Navbar inherits Rectangle {
             }
         }
 
-        // 3. Right Section: Toolbar controls (Vertically Centered)
+        // 3. Right Section: Toolbar controls
         VerticalLayout {
             alignment: center;
             HorizontalLayout {
                 spacing: 4px;
 
                 ChromeNavButton {
-                    icon: ProIconKind.ArrowDownload;
+                    icon: @image-url("icons/solar/download.svg");
                     activated => { root.toggle_downloads(); }
                 }
 
                 ChromeNavButton {
-                    icon: ProIconKind.Document;
+                    icon: @image-url("icons/solar/document.svg");
                     activated => { }
                 }
 
                 ChromeNavButton {
-                    icon: ProIconKind.Person;
+                    icon: @image-url("icons/solar/person.svg");
                     activated => { }
                 }
 
                 ChromeNavButton {
-                    icon: ProIconKind.Menu;
-                    activated => { }
+                    icon: @image-url("icons/solar/menu.svg");
+                    activated => { root.toggle_layout(); }
                 }
             }
         }

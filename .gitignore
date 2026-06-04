@@ -9,6 +9,10 @@ browser_data.db
 browser-ui/browser_data.db
 *.db-journal
 
+# wry shared WebContext cache/cookies (created at runtime)
+wry_data/
+browser-ui/wry_data/
+
 # macOS
 .DS_Store
 

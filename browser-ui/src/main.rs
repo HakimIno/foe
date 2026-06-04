@@ -127,6 +127,15 @@ async fn main() -> Result<(), slint::PlatformError> {
         }
     });
 
+    let window_weak = window.as_weak();
+    let engine_clone = engine.clone();
+    window.on_tab_layout_changed(move |layout| {
+        if let Some(window) = window_weak.upgrade() {
+            #[cfg(feature = "engine-wry")]
+            engine_clone.borrow_mut().set_tab_layout(layout.as_str(), &window);
+        }
+    });
+
     #[cfg(feature = "engine-servo")]
     println!("[Bootstrap] foe initialized with Servo Engine 🚀");
     #[cfg(feature = "engine-wry")]

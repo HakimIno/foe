@@ -2,9 +2,6 @@
   "name": "browser-ui-icons",
   "private": true,
   "type": "module",
-  "devDependencies": {
-    "@iconify-json/mynaui": "^1.2.0"
-  },
   "scripts": {
     "generate-icons": "node scripts/generate-icons.mjs"
   }
