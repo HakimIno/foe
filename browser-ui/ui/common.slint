@@ -98,6 +98,72 @@ export component ChromeNavButton inherits Rectangle {
     }
 }
 
+// iOS 26 / macOS 26 "Liquid Glass" capsule button — โปร่งแสง, hover/press
+// brighten ตัวเอง, วางอยู่ภายใน GlassCapsule ได้พอดี (default transparent fill)
+export component GlassButton inherits Rectangle {
+    in property <image> icon;
+    in property <color> icon-color: #FFFFFFC4;
+    in property <color> icon-hover-color: #FFFFFF;
+    in property <color> hover-bg: #FFFFFF1F;
+    in property <color> pressed-bg: #FFFFFF2E;
+    in property <length> icon-size: 15px;
+    callback activated();
+
+    width: 28px;
+    height: 28px;
+    border-radius: self.height / 2;
+    background: touch.pressed
+        ? root.pressed-bg
+        : (touch.has-hover ? root.hover-bg : transparent);
+
+    animate background { duration: 130ms; easing: ease-out; }
+
+    Image {
+        width: root.icon-size;
+        height: root.icon-size;
+        source: root.icon;
+        colorize: touch.has-hover ? root.icon-hover-color : root.icon-color;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        animate colorize { duration: 130ms; }
+    }
+
+    touch := TouchArea {
+        clicked => { root.activated(); }
+    }
+}
+
+// Liquid Glass capsule — แคปซูลกระจกฝ้าลอยตัว มี specular sheen ด้านบน
+// + เงานุ่ม สำหรับห่อกลุ่มปุ่ม (ใส่ HorizontalLayout เป็น children)
+export component GlassCapsule inherits Rectangle {
+    // themeable — default = dark glass; navbar override เป็น light glass
+    in property <brush> fill: @linear-gradient(180deg, #FFFFFF16 0%, #FFFFFF06 100%);
+    in property <color> stroke: #FFFFFF22;
+    in property <brush> sheen: @linear-gradient(180deg, #FFFFFF14 0%, #FFFFFF00 100%);
+    in property <color> shadow-color: #00000033;
+    in property <length> shadow-blur: 8px;
+
+    border-radius: self.height / 2;
+    background: root.fill;
+    border-width: 1px;
+    border-color: root.stroke;
+    drop-shadow-blur: root.shadow-blur;
+    drop-shadow-color: root.shadow-color;
+    drop-shadow-offset-y: 2px;
+    clip: true;
+
+    // specular top sheen — เส้นแสงไฮไลต์ครึ่งบนแบบกระจก
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: 100%;
+        height: parent.height / 2;
+        background: root.sheen;
+    }
+
+    @children
+}
+
 // Decorative scalloped (sine-wave) edge — ทำเป็นแถบเส้นหยักสีขาวสำหรับวางคั่น
 // ระหว่าง chrome สีน้ำเงินกับ webview (สไตล์ Arc). วาดด้วย Path tile ต่อ
 // period ละ 16px แล้ว repeat ให้เต็มความกว้าง (responsive ตาม resize).

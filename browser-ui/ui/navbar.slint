@@ -1,4 +1,4 @@
-import { ProIcon, ChromeNavButton } from "common.slint";
+import { ProIcon, GlassButton } from "common.slint";
 
 export component Navbar inherits Rectangle {
     in-out property <string> current-url;
@@ -14,92 +14,114 @@ export component Navbar inherits Rectangle {
     callback toggle_layout();
 
     height: 40px;
-    background: #2B2D31;
+    // iOS 27 Liquid Glass — พื้นดำสนิท ปุ่มลอยอิสระ ไม่มีกล่องครอบ
+    background: @linear-gradient(180deg, #0E0E11 0%, #060607 100%);
 
     HorizontalLayout {
-        padding-left: root.has-titlebar-spacing ? 80px : 12px; // Align with TabBar if no TabBar is present
-        padding-right: 12px;
-        spacing: 12px;
+        padding-left: root.has-titlebar-spacing ? 80px : 10px;
+        padding-right: 10px;
+        spacing: 8px;
 
-        // 1. Left Section: Navigation controls
+        // 1. Left: navigation buttons — ลอยอิสระ ไม่มีกล่อง
         VerticalLayout {
             alignment: center;
+            horizontal-stretch: 0;
             HorizontalLayout {
-                spacing: 4px;
+                spacing: 2px;
 
-                ChromeNavButton {
+                GlassButton {
+                    width: 30px;
+                    height: 30px;
+                    icon-size: 16px;
                     icon: @image-url("icons/solar/arc.svg");
+                    icon-color: #FFFFFFA6;
+                    hover-bg: #FFFFFF16;
+                    pressed-bg: #FFFFFF26;
                     activated => { }
                 }
-
-                ChromeNavButton {
+                GlassButton {
+                    width: 30px;
+                    height: 30px;
+                    icon-size: 16px;
                     icon: @image-url("icons/solar/arrow-left.svg");
+                    icon-color: #FFFFFFA6;
+                    hover-bg: #FFFFFF16;
+                    pressed-bg: #FFFFFF26;
                     activated => { root.back_clicked(); }
                 }
-
-                ChromeNavButton {
+                GlassButton {
+                    width: 30px;
+                    height: 30px;
+                    icon-size: 16px;
                     icon: @image-url("icons/solar/arrow-right.svg");
+                    icon-color: #FFFFFFA6;
+                    hover-bg: #FFFFFF16;
+                    pressed-bg: #FFFFFF26;
                     activated => { root.forward_clicked(); }
                 }
-
-                ChromeNavButton {
+                GlassButton {
+                    width: 30px;
+                    height: 30px;
+                    icon-size: 16px;
                     icon: @image-url("icons/solar/refresh.svg");
+                    icon-color: #FFFFFFA6;
+                    hover-bg: #FFFFFF16;
+                    pressed-bg: #FFFFFF26;
                     activated => { root.reload_clicked(); }
                 }
             }
         }
 
-        // 2. Middle Section: URL Search Bar
+        // 2. Middle: URL field — พื้นนุ่ม ไม่มีขอบคม (ลอยบนพื้นดำ)
         VerticalLayout {
             alignment: center;
             horizontal-stretch: 1;
             Rectangle {
-                height: 32px;
-                background: text-input.has-focus ? #2C2D30 : #1E1F22; // Darker background for URL
-                border-radius: 16px; // Full pill shape for URL input
-                border-width: 1px;
-                border-color: text-input.has-focus ? #00F0FF : #3F3F46;
-                clip: true;
+                height: 34px;
+                border-radius: self.height / 2; // full pill
+                background: text-input.has-focus ? #FFFFFF1F : #FFFFFF12;
+
+                animate background { duration: 160ms; easing: ease-out; }
 
                 HorizontalLayout {
-                    padding-left: 10px;
+                    padding-left: 14px;
                     padding-right: 6px;
-                    spacing: 8px;
+                    spacing: 9px;
 
-                    // Google Favicon + Dropdown Arrow
+                    // Search engine chip (Google + dropdown)
                     HorizontalLayout {
-                        spacing: 2px;
+                        spacing: 3px;
                         horizontal-stretch: 0;
                         y: (parent.height - self.height) / 2;
                         ProIcon {
                             icon: @image-url("icons/solar/google.svg");
                             icon-color: #FFFFFF;
                             fill-color: #FFFFFF;
-                            icon-width: 14px;
-                            icon-height: 14px;
+                            icon-width: 15px;
+                            icon-height: 15px;
                             stroke-width: 1.0px;
                         }
                         Text {
                             text: "▾";
-                            color: #9CA3AF;
-                            font-size: 10px;
+                            color: #FFFFFF7A;
+                            font-size: 9px;
                             vertical-alignment: center;
                         }
                     }
 
-                    // Divider line
+                    // Divider line — จางมาก
                     Rectangle {
                         width: 1px;
-                        height: 14px;
-                        background: #3F3F46;
+                        height: 16px;
+                        background: #FFFFFF1F;
                         y: (parent.height - self.height) / 2;
                     }
 
                     ProIcon {
                         icon: @image-url("icons/solar/lock.svg");
-                        icon-color: #9CA3AF;
-                        icon-width: 14px;
-                        icon-height: 14px;
+                        icon-color: #30D158; // secure-green tint (iOS)
+                        icon-width: 13px;
+                        icon-height: 13px;
                         stroke-width: 1.6px;
                         y: (parent.height - self.height) / 2;
                     }
@@ -107,7 +129,7 @@ export component Navbar inherits Rectangle {
                     text-input := TextInput {
                         text: root.current-url == "about:newtab" ? "" : root.current-url;
                         color: #FFFFFF;
-                        font-size: 12px;
+                        font-size: 12.5px;
                         font-weight: 500;
                         vertical-alignment: center;
                         horizontal-stretch: 1;
@@ -118,59 +140,73 @@ export component Navbar inherits Rectangle {
 
                     if (text-input.text == "" || root.current-url == "about:newtab") && !text-input.has-focus : Text {
                         text: "ค้นหาด้วย Google หรือป้อนที่อยู่...";
-                        color: #9CA3AF;
-                        font-size: 11px;
+                        color: #FFFFFF6E;
+                        font-size: 12px;
                         vertical-alignment: center;
                     }
 
-                    // Shields button inside URL Area
-                    Rectangle {
-                        width: 26px;
-                        height: 26px;
-                        border-radius: 13px;
-                        background: touch-shields.has-hover ? #FFFFFF15 : (root.shields-active ? #EF444415 : transparent);
+                    // Shields button inside URL field
+                    GlassButton {
+                        width: 28px;
+                        height: 28px;
+                        icon-size: 15px;
+                        icon: @image-url("icons/solar/shield.svg");
+                        icon-color: root.shields-active ? #FF453A : #FFFFFF82;
+                        icon-hover-color: root.shields-active ? #FF453A : #FFFFFF;
+                        hover-bg: #FFFFFF16;
+                        pressed-bg: #FFFFFF24;
                         y: (parent.height - self.height) / 2;
-                        
-                        ProIcon {
-                            icon: @image-url("icons/solar/shield.svg");
-                            icon-color: root.shields-active ? #EF4444 : #9CA3AF;
-                            icon-width: 14px;
-                            icon-height: 14px;
-                            stroke-width: 1.6px;
-                            y: (parent.height - self.height) / 2;
-                        }
-
-                        touch-shields := TouchArea {
-                            clicked => { root.toggle_shields(); }
-                        }
+                        activated => { root.toggle_shields(); }
                     }
                 }
             }
         }
 
-        // 3. Right Section: Toolbar controls
+        // 3. Right: tools buttons — ลอยอิสระ ไม่มีกล่อง
         VerticalLayout {
             alignment: center;
+            horizontal-stretch: 0;
             HorizontalLayout {
-                spacing: 4px;
+                spacing: 2px;
 
-                ChromeNavButton {
+                GlassButton {
+                    width: 30px;
+                    height: 30px;
+                    icon-size: 16px;
                     icon: @image-url("icons/solar/download.svg");
+                    icon-color: #FFFFFFA6;
+                    hover-bg: #FFFFFF16;
+                    pressed-bg: #FFFFFF26;
                     activated => { root.toggle_downloads(); }
                 }
-
-                ChromeNavButton {
+                GlassButton {
+                    width: 30px;
+                    height: 30px;
+                    icon-size: 16px;
                     icon: @image-url("icons/solar/document.svg");
+                    icon-color: #FFFFFFA6;
+                    hover-bg: #FFFFFF16;
+                    pressed-bg: #FFFFFF26;
                     activated => { }
                 }
-
-                ChromeNavButton {
+                GlassButton {
+                    width: 30px;
+                    height: 30px;
+                    icon-size: 16px;
                     icon: @image-url("icons/solar/person.svg");
+                    icon-color: #FFFFFFA6;
+                    hover-bg: #FFFFFF16;
+                    pressed-bg: #FFFFFF26;
                     activated => { }
                 }
-
-                ChromeNavButton {
+                GlassButton {
+                    width: 30px;
+                    height: 30px;
+                    icon-size: 16px;
                     icon: @image-url("icons/solar/menu.svg");
+                    icon-color: #FFFFFFA6;
+                    hover-bg: #FFFFFF16;
+                    pressed-bg: #FFFFFF26;
                     activated => { root.toggle_layout(); }
                 }
             }

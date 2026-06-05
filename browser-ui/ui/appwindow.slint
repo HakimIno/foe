@@ -82,8 +82,9 @@ export component AppWindow inherits Window {
             spacing: 0px;
 
             if root.tab-layout == "top" : Rectangle {
-                // Vivid cobalt-blue chrome (น้ำเงินสด อิ่มสี ไม่ออกม่วงเทา)
-                background: @linear-gradient(180deg, #4661FF 0%, #3650F0 100%);
+                // Near-black chrome (iOS 27 Liquid Glass) — ดำสนิทให้กระจกลอยเด่น
+                background: @linear-gradient(180deg, #0E0E11 0%, #060607 100%);
+                
                 vertical-stretch: 0;
                 clip: true;
 
@@ -95,7 +96,7 @@ export component AppWindow inherits Window {
                     height: parent.height;
                     source: @image-url("textures/noise.svg");
                     image-fit: cover;
-                    opacity: 0.18;
+                    opacity: 0.08;
                 }
 
                 VerticalLayout {
