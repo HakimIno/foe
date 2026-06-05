@@ -15,6 +15,9 @@ log = "0.4"
 env_logger = "0.11"
 wry = { version = "0.44", optional = true }
 raw-window-handle = { version = "0.6", optional = true }
+# Favicon fetching for the wry engine (Servo delivers favicons natively).
+# "blocking" — ดึงใน std::thread เลี่ยงปัญหา tokio runtime context ใน wry callback
+reqwest = { version = "0.11", optional = true, features = ["blocking"] }
 
 # Servo Engine — tracking git nightly (was crates.io =0.1.1). Pinned to a
 # specific rev for reproducible builds; bump the rev to pull newer layout
@@ -40,4 +43,4 @@ slint-build = "1.6"
 [features]
 default = ["engine-wry"]
 engine-servo = ["dep:servo", "dep:servo-embedder-traits", "dep:surfman", "dep:cgl", "dep:gl", "dep:gleam", "dep:glow", "dep:euclid", "dep:keyboard-types", "dep:image", "dep:dpi"]
-engine-wry = ["dep:wry", "dep:raw-window-handle"]
+engine-wry = ["dep:wry", "dep:raw-window-handle", "dep:image", "dep:reqwest"]

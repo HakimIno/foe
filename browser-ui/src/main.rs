@@ -22,6 +22,15 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use i_slint_backend_winit::WinitWindowAccessor;
 use slint::Model;
+use std::sync::atomic::{AtomicI32, Ordering};
+
+/// ตัวนับ id ของแท็บ — เริ่มที่ 1 เพราะแท็บเริ่มต้นจาก .slint literal default id = 0
+static NEXT_TAB_ID: AtomicI32 = AtomicI32::new(1);
+
+/// คืน id ใหม่ที่ไม่ซ้ำสำหรับแท็บ ใช้ผูก TabInfo (model) กับแท็บใน engine
+pub fn next_tab_id() -> i32 {
+    NEXT_TAB_ID.fetch_add(1, Ordering::Relaxed)
+}
 
 #[tokio::main]
 async fn main() -> Result<(), slint::PlatformError> {
@@ -87,7 +96,7 @@ async fn main() -> Result<(), slint::PlatformError> {
         let mut eng = engine.borrow_mut();
         for i in 0..tabs_model.row_count() {
             if let Some(tab) = tabs_model.row_data(i) {
-                eng.add_tab(&tab.url, &window);
+                eng.add_tab(&tab.url, tab.id, &window);
             }
         }
     }

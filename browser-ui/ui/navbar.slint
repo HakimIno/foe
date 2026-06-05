@@ -15,8 +15,8 @@ export component Navbar inherits Rectangle {
     callback toggle_layout();
 
     height: 40px;
-    // iOS 27 Liquid Glass — themeable: dark = พื้นดำสนิท, light = กระจกสว่าง
-    background: Theme.chrome;
+    // Flat toolbar — light = ขาว, dark = เทาเข้ม
+    background: Theme.toolbar;
 
     HorizontalLayout {
         padding-left: root.has-titlebar-spacing ? 80px : 10px;
@@ -81,6 +81,11 @@ export component Navbar inherits Rectangle {
                 height: 34px;
                 border-radius: self.height / 2; // full pill
                 background: text-input.has-focus ? Theme.url-bg-focus : Theme.url-bg;
+                // focus = ขอบ + เงานุ่ม (Chrome omnibox) ให้ pill เด่นบนพื้นขาว
+                border-width: text-input.has-focus ? 1px : 0px;
+                border-color: Theme.selection;
+                drop-shadow-blur: text-input.has-focus ? 6px : 0px;
+                drop-shadow-color: #1A73E833;
 
                 animate background { duration: 160ms; easing: ease-out; }
 

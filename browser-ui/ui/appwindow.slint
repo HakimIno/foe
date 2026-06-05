@@ -88,28 +88,25 @@ export component AppWindow inherits Window {
             spacing: 0px;
 
             if root.tab-layout == "top" : Rectangle {
-                // Themeable chrome (iOS 27 Liquid Glass) — dark = ดำสนิท, light = กระจกสว่าง
-                background: Theme.chrome;
+                // แถบเทาหลังแท็บ (Chrome tab strip) — active tab สีขาวจะกลืนกับ toolbar
+                background: Theme.tabstrip;
 
                 vertical-stretch: 0;
                 clip: true;
 
-                // เม็ด noise/grain ทับบนพื้นน้ำเงิน (opacity ต่ำ ไม่ให้ฟอกสีจนซีด)
-                Image {
+                // เม็ด noise/grain — แสดงเฉพาะโหมด dark (โหมด light เน้นพื้นเรียบสะอาด)
+                if Theme.dark : Image {
                     x: 0px;
                     y: 0px;
                     width: parent.width;
                     height: parent.height;
                     source: @image-url("textures/noise.svg");
                     image-fit: cover;
-                    opacity: 0.08;
+                    opacity: 0.06;
                 }
 
                 VerticalLayout {
                     spacing: 0px;
-                    // ขอบน้ำเงินใต้ navbar ให้ webview ไม่ชิดเกินไป (มีระยะหายใจ)
-                    // 40 (TabBar) + 40 (Navbar) + 12 = 92 ตรงกับ compute_bounds "top"=92
-                    padding-bottom: 12px;
 
                     TabBar {
                         tabs: root.tabs;
@@ -122,24 +119,33 @@ export component AppWindow inherits Window {
                         double_click_titlebar() => { root.double_click_titlebar(); }
                     }
 
-                    Navbar {
-                        // โปร่งใสให้พื้นน้ำเงินของ header แสดงทะลุ (URL pill ยังเป็นโทนเข้ม)
-                        background: transparent;
-                        current-url: root.current-url;
-                        shields-active: root.shields-active;
-                        has-titlebar-spacing: false; // It's below the TabBar now, so no need for titlebar spacing
-                        navigate_to(url) => { root.navigate_to(url); }
-                        toggle_shields() => { root.toggle_shields(); }
-                        toggle_downloads() => { root.show-downloader-panel = !root.show-downloader-panel; }
-                        back_clicked() => { root.back_clicked(); }
-                        forward_clicked() => { root.forward_clicked(); }
-                        reload_clicked() => { root.reload_clicked(); }
-                        toggle_layout() => {
-                            if root.tab-layout == "top" { root.tab-layout = "left"; }
-                            else if root.tab-layout == "left" { root.tab-layout = "bottom"; }
-                            else if root.tab-layout == "bottom" { root.tab-layout = "right"; }
-                            else { root.tab-layout = "top"; }
-                            root.tab_layout_changed(root.tab-layout);
+                    // โซน toolbar สีขาว — ครอบ Navbar + ระยะหายใจด้านล่าง
+                    // 40 (TabBar) + 40 (Navbar) + 12 = 92 ตรงกับ compute_bounds "top"=92
+                    Rectangle {
+                        background: Theme.toolbar;
+
+                        VerticalLayout {
+                            padding-bottom: 12px;
+
+                            Navbar {
+                                background: transparent; // ให้พื้น toolbar ขาวแสดงทะลุ
+                                current-url: root.current-url;
+                                shields-active: root.shields-active;
+                                has-titlebar-spacing: false; // It's below the TabBar now, so no need for titlebar spacing
+                                navigate_to(url) => { root.navigate_to(url); }
+                                toggle_shields() => { root.toggle_shields(); }
+                                toggle_downloads() => { root.show-downloader-panel = !root.show-downloader-panel; }
+                                back_clicked() => { root.back_clicked(); }
+                                forward_clicked() => { root.forward_clicked(); }
+                                reload_clicked() => { root.reload_clicked(); }
+                                toggle_layout() => {
+                                    if root.tab-layout == "top" { root.tab-layout = "left"; }
+                                    else if root.tab-layout == "left" { root.tab-layout = "bottom"; }
+                                    else if root.tab-layout == "bottom" { root.tab-layout = "right"; }
+                                    else { root.tab-layout = "top"; }
+                                    root.tab_layout_changed(root.tab-layout);
+                                }
+                            }
                         }
                     }
                 }

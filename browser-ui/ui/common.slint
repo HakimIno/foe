@@ -1,5 +1,27 @@
 import { Theme } from "theme.slint";
 
+// สปินเนอร์โหลด — หมุนไอคอน refresh ต่อเนื่องด้วย animation-tick()
+// ใช้แทนที่ favicon บนแท็บตอนหน้ากำลังโหลด/reload (มี footprint 24x24 เท่า ProIcon)
+export component LoadingSpinner inherits Rectangle {
+    in property <color> tint: Theme.text-muted;
+    in property <length> icon-size: 13px;
+
+    width: 24px;
+    height: 24px;
+
+    Image {
+        width: root.icon-size;
+        height: root.icon-size;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        source: @image-url("icons/solar/refresh.svg");
+        colorize: root.tint;
+        transform-origin: { x: self.width / 2, y: self.height / 2 };
+        // หมุนต่อเนื่อง — มุมเพิ่มเรื่อยๆ (ครบรอบทุก 900ms), หมุนหลายรอบเห็นเหมือนเดิม
+        transform-rotation: (animation-tick() / 900ms) * 360deg;
+    }
+}
+
 export component ProIcon inherits Rectangle {
     in property <image> icon;
     in property <color> icon-color: Theme.text-muted;

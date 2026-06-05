@@ -237,7 +237,8 @@ impl ServoEngine {
     }
 
     /// Add a new tab. Native tabs do not allocate a Servo WebView until navigation.
-    pub fn add_tab(&mut self, url_str: &str, window: &AppWindow) {
+    // _id: ใช้ให้ API ตรงกับ WryEngine; ฝั่ง Servo ผูกแท็บด้วย tab_index ผ่าน delegate
+    pub fn add_tab(&mut self, url_str: &str, _id: i32, window: &AppWindow) {
         let Some(ref servo) = self.servo else {
             log::error!("[ServoEngine] Cannot add tab — Servo not initialized");
             return;

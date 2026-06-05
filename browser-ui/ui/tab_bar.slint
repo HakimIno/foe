@@ -1,4 +1,4 @@
-import { ProIcon, MinimalIconButton, ChromeNavButton } from "common.slint";
+import { ProIcon, MinimalIconButton, ChromeNavButton, LoadingSpinner } from "common.slint";
 import { TabInfo } from "sidebar.slint";
 import { Theme } from "theme.slint";
 
@@ -26,7 +26,7 @@ component TabGhost inherits Rectangle {
     in property <image> favicon;
 
     width: root.slot-width;
-    height: 30px; /* Compact floating tab */
+    height: 34px; /* Chrome-style tab */
     opacity: 0.85;
 
     // Dragged copy — แผ่นนุ่มยกตัว มีเงาให้ดูลอย (ไม่มีขอบ/sheen)
@@ -56,7 +56,7 @@ component TabGhost inherits Rectangle {
                 root.site-type == "google" ? @image-url("icons/solar/google.svg") :
                 @image-url("icons/solar/globe.svg")
             );
-            icon-color: root.has-favicon ? #FFFFFF : Theme.tab-icon;
+            icon-color: root.has-favicon ? transparent : Theme.tab-icon;
             fill-color: (!root.has-favicon && root.site-type == "google") ? Theme.tab-icon : transparent;
             icon-width: 13px;
             icon-height: 13px;
@@ -87,6 +87,7 @@ component TabItem inherits Rectangle {
     in property <string> site-type;
     in property <bool> has-favicon;
     in property <image> favicon;
+    in property <bool> loading;
     in property <bool> is-drag-source;
     in property <length> slot-width: 120px;
 
@@ -98,7 +99,7 @@ component TabItem inherits Rectangle {
 
     width: root.slot-width;
     animate width { duration: 150ms; easing: ease-out; }
-    height: 30px; /* Compact floating tab */
+    height: 34px; /* Chrome-style tab */
 
     // True when mouse is over the close button zone (right 22px of wide tab, or anywhere on narrow tab while hovered)
     property <bool> mouse-on-close: touch-area.has-hover && !root.is-pinned && (
@@ -118,12 +119,14 @@ component TabItem inherits Rectangle {
         // ไม่มีเส้นคั่นแล้ว — ใช้ช่องว่างระหว่างแท็บแทน (โมเดิร์น)
 
         background_capsule := Rectangle {
-            x: 5px;
-            y: 2px;
-            width: parent.width - 10px;
-            height: parent.height - 4px;
-            border-radius: 9px;
-            // active = แผ่นนุ่มลอยตัว ไม่มีขอบคม, hover = จางกว่า, idle = โปร่งใส
+            x: 1px;
+            y: 0px;
+            width: parent.width - 2px;
+            height: parent.height;
+            // Chrome-style — โค้งเฉพาะมุมบน, ก้นแบนชนขอบล่างให้กลืนกับ toolbar
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+            // active = สีขาว (= toolbar) กลืนเป็นเนื้อเดียว, hover = เทาอ่อน, idle = โปร่งใส
             background:
                 root.active ? Theme.tab-active-bg :
                 touch-area.has-hover ? Theme.tab-hover-bg : transparent;
@@ -137,14 +140,22 @@ component TabItem inherits Rectangle {
             spacing: root.slot-width > 70px ? 8px : 0px;
             // Removed alignment: start to let horizontal-stretch push the close button to the right
 
-            if root.slot-width > 70px || !touch-area.has-hover : ProIcon {
+            // กำลังโหลด/reload → สปินเนอร์หมุน (แทนที่ favicon ชั่วคราว)
+            if root.loading && (root.slot-width > 70px || !touch-area.has-hover) : LoadingSpinner {
+                tint: root.active ? Theme.tab-text-active : Theme.tab-text-idle;
+                icon-size: 13px;
+                y: (parent.height - self.height) / 2;
+            }
+
+            if !root.loading && (root.slot-width > 70px || !touch-area.has-hover) : ProIcon {
                 icon: root.has-favicon ? root.favicon : (
                     root.site-type == "brave" ? @image-url("icons/solar/shield.svg") :
                     root.site-type == "arc" ? @image-url("icons/solar/arc.svg") :
                     root.site-type == "google" ? @image-url("icons/solar/google.svg") :
                     @image-url("icons/solar/globe.svg")
                 );
-                icon-color: root.has-favicon ? #FFFFFF : (root.active ? Theme.tab-text-active : (touch-area.has-hover ? Theme.tab-text-hover : Theme.tab-text-idle));
+                // favicon จริง = transparent (ไม่ colorize ให้แสดงสีจริง); ไอคอน fallback ใช้สีตามสถานะ
+                icon-color: root.has-favicon ? transparent : (root.active ? Theme.tab-text-active : (touch-area.has-hover ? Theme.tab-text-hover : Theme.tab-text-idle));
                 fill-color: (!root.has-favicon && root.site-type == "google" && root.active) ? Theme.tab-text-active : ((!root.has-favicon && root.site-type == "google") ? Theme.tab-text-idle : transparent);
                 icon-width: 13px;
                 icon-height: 13px;
@@ -268,17 +279,15 @@ export component TabBar inherits Rectangle {
     background: transparent;
 
     property <length> available-width: root.width - (root.has-titlebar-spacing ? 100px : 20px) - 20px;
-    property <length> max-tab-width: 130px;
+    property <length> max-tab-width: 240px;  // Chrome-style: แต่ละแท็บกว้างสุด ~240px
     property <length> min-tab-width: 40px;
-    
-    // Max island width
-    property <length> max-island-width: 800px;
-    property <length> desired-island-width: root.tabs.length * root.max-tab-width + 48px;
-    property <length> actual-island-width: Math.min(root.available-width, Math.min(root.max-island-width, root.desired-island-width));
-    
-    property <length> calculated-tab-width: root.tabs.length > 0 ? Math.max(
-        root.min-tab-width,
-        (root.actual-island-width - 48px) / root.tabs.length
+    property <length> add-button-space: 36px; // เผื่อที่ปุ่ม +
+
+    // Chrome behavior: แท็บกินเต็มความกว้างที่มี โดยแต่ละแท็บไม่เกิน max-tab-width
+    // มีหลายแท็บ → หดลง (ไม่ต่ำกว่า min-tab-width); มีน้อยแท็บ → คงที่ ~max แล้วเหลือที่ว่างขวา
+    property <length> calculated-tab-width: root.tabs.length > 0 ? Math.min(
+        root.max-tab-width,
+        Math.max(root.min-tab-width, (root.available-width - root.add-button-space) / root.tabs.length)
     ) : root.max-tab-width;
 
     // Pure function to calculate sliding visual offset for reordering
@@ -329,8 +338,8 @@ export component TabBar inherits Rectangle {
     tab-flickable := Flickable {
         width: parent.width - (root.has-titlebar-spacing ? 80px : 12px) - 12px;
         x: root.has-titlebar-spacing ? 80px : 12px;
-        height: 30px;
-        y: 5px; // Center the 30px tabs within the 40px bar
+        height: 34px;
+        y: 6px; // วางแท็บชิดล่างของแถบ 40px ให้ก้นแท็บชนขอบ toolbar
         interactive: false;
         viewport-width: Math.max(root.tabs.length * root.calculated-tab-width + 36px, tab-flickable.width);
 
@@ -370,6 +379,7 @@ export component TabBar inherits Rectangle {
                 site-type: tab.site_type;
                 has-favicon: tab.has_favicon;
                 favicon: tab.favicon;
+                loading: tab.loading;
                 is-drag-source: TabDrag.state.active && TabDrag.state.from == idx;
                 slot-width: root.calculated-tab-width;
 

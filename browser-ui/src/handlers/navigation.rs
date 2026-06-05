@@ -14,6 +14,9 @@ fn update_active_tab(window: &AppWindow, url: &str, title: &str) {
             tab.url = url.to_string().into();
             tab.title = title.to_string().into();
             tab.site_type = crate::handlers::get_site_type(url).into();
+            // เปลี่ยนเว็บแล้ว — ล้าง favicon เก่า รอ favicon ของหน้าใหม่
+            tab.has_favicon = false;
+            tab.favicon = slint::Image::default();
         }
     }
     window.set_tabs(slint::ModelRc::new(slint::VecModel::from(tabs)));
@@ -61,8 +64,12 @@ pub fn setup(
             return;
         }
 
-        // Add history entry
-        let title = format!("Webpage - {}", target_url);
+        // Placeholder title = host (เช่น "whale.naver.com") ระหว่างรอ title จริง
+        // จากหน้าเว็บ (wry ส่งผ่าน document_title_changed_handler แล้ว set ทับ)
+        let title = url::Url::parse(&target_url)
+            .ok()
+            .and_then(|u| u.host_str().map(|h| h.to_string()))
+            .unwrap_or_else(|| target_url.clone());
         if let Err(e) = db_clone.lock().unwrap().add_history_entry(&target_url, &title) {
             eprintln!("[Database] Failed to save history: {}", e);
         }

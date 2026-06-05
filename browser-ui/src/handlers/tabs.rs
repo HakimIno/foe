@@ -46,7 +46,9 @@ fn setup_new_tab(window: &AppWindow, servo_engine: Rc<RefCell<crate::Engine>>) {
         }
 
         let default_url = "about:newtab";
+        let id = crate::next_tab_id();
         tabs.push(TabInfo {
+            id,
             title: "Google".into(),
             url: default_url.into(),
             active: true,
@@ -54,6 +56,7 @@ fn setup_new_tab(window: &AppWindow, servo_engine: Rc<RefCell<crate::Engine>>) {
             site_type: "google".into(),
             has_favicon: false,
             favicon: slint::Image::default(),
+            loading: false,
         });
 
         window.set_current_url(default_url.into());
@@ -62,7 +65,7 @@ fn setup_new_tab(window: &AppWindow, servo_engine: Rc<RefCell<crate::Engine>>) {
 
         // Add Servo WebView for new tab and activate it
         let mut engine = engine_clone.borrow_mut();
-        engine.add_tab(default_url, &window);
+        engine.add_tab(default_url, id, &window);
         let idx = engine.len() - 1;
         engine.set_active_tab(idx);
     });

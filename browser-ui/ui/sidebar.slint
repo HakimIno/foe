@@ -2,6 +2,7 @@ import { ProIcon, MinimalButton, MinimalIconButton } from "common.slint";
 import { Theme } from "theme.slint";
 
 export struct TabInfo {
+    id: int,
     title: string,
     url: string,
     active: bool,
@@ -9,6 +10,7 @@ export struct TabInfo {
     site_type: string,
     has_favicon: bool,
     favicon: image,
+    loading: bool,
 }
 
 export struct DownloadItem {
@@ -56,7 +58,7 @@ component SidebarTab inherits Rectangle {
                 root.site-type == "google" ? @image-url("icons/solar/google.svg") :
                 @image-url("icons/solar/document.svg")
             );
-            icon-color: root.has-favicon ? #FFFFFF : (root.active ? Theme.text : Theme.text-muted);
+            icon-color: root.has-favicon ? transparent : (root.active ? Theme.text : Theme.text-muted);
             fill-color: (!root.has-favicon && root.site-type == "google") ? Theme.text : transparent;
             icon-width: 14px;
             icon-height: 14px;

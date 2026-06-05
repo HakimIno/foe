@@ -1,81 +1,81 @@
 // Global design-token singleton — single source of truth สำหรับสีทั้งหมด
-// สลับ dark/light ได้จากที่เดียวด้วย Theme.dark = true/false
-// ทุก component import { Theme } from "theme.slint"; แล้วใช้ Theme.<token>
-//
-// เข้าถึงจาก Rust ได้ผ่าน: app.global::<Theme>().set_dark(false);
+// สไตล์: flat / clean (Chrome / Whale) — ไม่มีเอฟเฟกต์กระจกอีกต่อไป
+// สลับ dark/light ได้จากที่เดียวด้วย Theme.dark = true/false (กด F2)
+// เข้าถึงจาก Rust ได้ผ่าน: app.global::<Theme>().set_dark(true);
 export global Theme {
-    // แหล่งความจริงเดียวของโหมดสี — true = dark, false = light
-    in-out property <bool> dark: true;
+    // แหล่งความจริงเดียวของโหมดสี — false = light (ค่าเริ่มต้น), true = dark
+    in-out property <bool> dark: false;
 
-    // === Base surfaces ===
-    out property <color> window-bg:        dark ? #1E1F22 : #FFFFFF;
-    out property <brush>  chrome:          dark
-        ? @linear-gradient(180deg, #0E0E11 0%, #060607 100%)
-        : @linear-gradient(180deg, #FBFBFD 0%, #ECECEF 100%);
-    out property <color> webview-blank-bg: dark ? #1E1F22 : #FFFFFF;
+    // === Chrome zones ===
+    out property <color> tabstrip:        dark ? #1B1B1D : #DEE1E6; // แถบเทาหลังแท็บ
+    out property <color> toolbar:         dark ? #292A2D : #FFFFFF; // แถบ navbar / active tab
+    out property <color> window-bg:       dark ? #202124 : #FFFFFF;
+    out property <color> webview-blank-bg: dark ? #202124 : #FFFFFF;
+    // คงไว้เพื่อ backward-compat (เผื่อมีจุดอ้าง) = สีแถบเทา
+    out property <color> chrome:          dark ? #1B1B1D : #DEE1E6;
 
     // === Sidebar / panels ===
-    out property <color> sidebar-bg:       dark ? #0B0B0C : #F7F7F8;
-    out property <color> sidebar-divider:  dark ? #1E1E20 : #E4E4E7;
-    out property <color> surface:          dark ? #141416 : #FFFFFF;
-    out property <color> surface-active:   dark ? #1E1E20 : #EFEFF1;
-    out property <color> surface-hover:    dark ? #141416 : #EFEFF1;
-    out property <color> surface-border:   dark ? #2D2D30 : #E4E4E7;
-    out property <color> surface-border-2: dark ? #242427 : #E4E4E7;
+    out property <color> sidebar-bg:       dark ? #202124 : #F1F3F4;
+    out property <color> sidebar-divider:  dark ? #3C4043 : #DADCE0;
+    out property <color> surface:          dark ? #292A2D : #FFFFFF;
+    out property <color> surface-active:   dark ? #35363A : #E8EAED;
+    out property <color> surface-hover:    dark ? #2D2E31 : #F1F3F4;
+    out property <color> surface-border:   dark ? #3C4043 : #DADCE0;
+    out property <color> surface-border-2: dark ? #3C4043 : #DADCE0;
 
     // === Text ===
-    out property <color> text:           dark ? #FFFFFF : #18181B;
-    out property <color> text-strong:    dark ? #FAFAFA : #18181B;
-    out property <color> text-secondary: dark ? #A0A0AA : #52525B;
-    out property <color> text-muted:     dark ? #71717A : #71717A;
-    out property <color> text-faint:     dark ? #52525B : #A1A1AA;
+    out property <color> text:           dark ? #E8EAED : #202124;
+    out property <color> text-strong:    dark ? #FFFFFF : #202124;
+    out property <color> text-secondary: dark ? #BDC1C6 : #5F6368;
+    out property <color> text-muted:     dark ? #9AA0A6 : #5F6368;
+    out property <color> text-faint:     dark ? #80868B : #80868B;
 
-    // === Glass controls บน chrome (ขาวบนดำ / ดำบนสว่าง) ===
-    out property <color> glass-icon:        dark ? #FFFFFFA6 : #3F3F46;
-    out property <color> glass-icon-strong: dark ? #FFFFFF : #18181B;
-    out property <color> glass-hover-bg:    dark ? #FFFFFF16 : #18181B0F;
-    out property <color> glass-pressed-bg:  dark ? #FFFFFF26 : #18181B1F;
-    out property <color> control-hover:     dark ? #FFFFFF14 : #18181B0D;
+    // === Controls บน toolbar (flat — hover = วงกลมเทา ไม่ใช่กระจก) ===
+    out property <color> glass-icon:        dark ? #C4C7C5 : #5F6368;
+    out property <color> glass-icon-strong: dark ? #E8EAED : #202124;
+    out property <color> glass-hover-bg:    dark ? #3C4043 : #E8EAED;
+    out property <color> glass-pressed-bg:  dark ? #4A4D51 : #DADCE0;
+    out property <color> control-hover:     dark ? #3C4043 : #F1F3F4;
 
-    // === URL field ===
-    out property <color> url-bg:          dark ? #FFFFFF12 : #18181B0A;
-    out property <color> url-bg-focus:    dark ? #FFFFFF1F : #18181B14;
-    out property <color> url-text:        dark ? #FFFFFF : #18181B;
-    out property <color> url-placeholder: dark ? #FFFFFF6E : #18181B73;
-    out property <color> url-divider:     dark ? #FFFFFF1F : #18181B1F;
-    out property <color> url-chip-dim:    dark ? #FFFFFF7A : #18181B7A;
+    // === URL field (omnibox) ===
+    out property <color> url-bg:          dark ? #3C4043 : #F1F3F4;
+    out property <color> url-bg-focus:    dark ? #202124 : #FFFFFF;
+    out property <color> url-text:        dark ? #E8EAED : #202124;
+    out property <color> url-placeholder: dark ? #9AA0A6 : #5F6368;
+    out property <color> url-divider:     dark ? #5F6368 : #DADCE0;
+    out property <color> url-chip-dim:    dark ? #9AA0A6 : #5F6368;
 
-    // === Tabs บน chrome ===
-    out property <color> tab-active-bg:   dark ? #FFFFFF1E : #18181B14;
-    out property <color> tab-hover-bg:    dark ? #FFFFFF12 : #18181B0D;
-    out property <color> tab-text-active: dark ? #FFFFFF : #18181B;
-    out property <color> tab-text-hover:  dark ? #FFFFFFEC : #27272A;
-    out property <color> tab-text-idle:   dark ? #FFFFFFB3 : #52525B;
-    out property <color> tab-close-hover: dark ? #FFFFFF2E : #18181B1F;
-    out property <color> tab-ghost-bg:    dark ? #FFFFFF2B : #18181B26;
-    out property <color> tab-icon:        dark ? #FFFFFF : #18181B;
-    out property <color> add-tab-hover:   dark ? #FFFFFF22 : #18181B14;
+    // === Tabs (Chrome-style ต่อ toolbar) ===
+    out property <color> tab-active-bg:   dark ? #292A2D : #FFFFFF; // = toolbar → กลืนกัน
+    out property <color> tab-hover-bg:    dark ? #2D2E31 : #E8EAED;
+    out property <color> tab-text-active: dark ? #E8EAED : #202124;
+    out property <color> tab-text-hover:  dark ? #E8EAED : #202124;
+    out property <color> tab-text-idle:   dark ? #9AA0A6 : #5F6368;
+    out property <color> tab-close-hover: dark ? #3C4043 : #DADCE0;
+    out property <color> tab-ghost-bg:    dark ? #3C4043 : #FFFFFF;
+    out property <color> tab-icon:        dark ? #E8EAED : #5F6368;
+    out property <color> add-tab-hover:   dark ? #3C4043 : #E8EAED;
 
-    // === Accents (ไม่ขึ้นกับโหมด) ===
-    out property <color> accent:       #18181B;
-    out property <color> secure-green: #30D158;
-    out property <color> shields-red:  #FF453A;
-    out property <color> selection:    dark ? #D4D4D8 : #3F3F46;
+    // === Accents ===
+    out property <color> accent:       #1A73E8;          // Chrome blue
+    out property <color> secure-green: dark ? #81C995 : #1E8E3E;
+    out property <color> shields-red:  dark ? #F28B82 : #D93025;
+    out property <color> selection:    #1A73E8;
 
     // === Command bar / overlay ===
-    out property <color> overlay:        #000000A0;
-    out property <color> popover-bg:     dark ? #141416 : #FFFFFF;
-    out property <color> popover-border: dark ? #2D2D30 : #E4E4E7;
+    out property <color> overlay:        #00000066;
+    out property <color> popover-bg:     dark ? #292A2D : #FFFFFF;
+    out property <color> popover-border: dark ? #3C4043 : #DADCE0;
 
     // === Webview newtab search box ===
-    out property <color> search-box-bg:           dark ? #2C2D30 : #F4F4F5;
-    out property <color> search-box-bg-focus:      dark ? #323338 : #FFFFFF;
-    out property <color> search-box-border:        dark ? #3A3B3E : #E4E4E7;
-    out property <color> search-box-border-focus:  dark ? #52525B : #A1A1AA;
-    out property <color> hero-text:                dark ? #FAFAFA : #18181B;
+    out property <color> search-box-bg:           dark ? #303134 : #F1F3F4;
+    out property <color> search-box-bg-focus:      dark ? #202124 : #FFFFFF;
+    out property <color> search-box-border:        dark ? #5F6368 : #DADCE0;
+    out property <color> search-box-border-focus:  dark ? #8AB4F8 : #1A73E8;
+    out property <color> hero-text:                dark ? #E8EAED : #202124;
 
-    // === Download floating panel ===
-    out property <color> dl-panel-bg: dark ? #FFFFFFD0 : #FFFFFFF0;
-    out property <color> dl-track:    dark ? #E4E4E7 : #E4E4E7;
-    out property <color> dl-fill:     #18181B;
+    // === Download floating panel (วิดเจ็ตสีอ่อนถาวรทั้งสองโหมด) ===
+    out property <color> dl-panel-bg: dark ? #FFFFFFF0 : #FFFFFFF0;
+    out property <color> dl-track:    #E4E4E7;
+    out property <color> dl-fill:     #1A73E8;
 }
