@@ -1,4 +1,5 @@
 import { ProIcon, MinimalButton, MinimalIconButton } from "common.slint";
+import { Theme } from "theme.slint";
 
 export struct TabInfo {
     title: string,
@@ -29,9 +30,9 @@ component SidebarTab inherits Rectangle {
 
     height: 36px;
     border-radius: 4px;
-    background: root.active ? #1E1E20 : (touch-area.has-hover ? #141416 : transparent);
+    background: root.active ? Theme.surface-active : (touch-area.has-hover ? Theme.surface-hover : transparent);
     border-width: 1px;
-    border-color: root.active ? #2D2D30 : transparent;
+    border-color: root.active ? Theme.surface-border : transparent;
 
     animate background { duration: 100ms; }
 
@@ -43,7 +44,7 @@ component SidebarTab inherits Rectangle {
         if root.active: Rectangle {
             width: 4px;
             height: 12px;
-            background: #D4D4D8;
+            background: Theme.selection;
             border-radius: 2px;
             y: (parent.height - self.height) / 2;
         }
@@ -55,8 +56,8 @@ component SidebarTab inherits Rectangle {
                 root.site-type == "google" ? @image-url("icons/solar/google.svg") :
                 @image-url("icons/solar/document.svg")
             );
-            icon-color: root.has-favicon ? #FFFFFF : (root.active ? #FFFFFF : #71717A);
-            fill-color: (!root.has-favicon && root.site-type == "google") ? #FFFFFF : transparent;
+            icon-color: root.has-favicon ? #FFFFFF : (root.active ? Theme.text : Theme.text-muted);
+            fill-color: (!root.has-favicon && root.site-type == "google") ? Theme.text : transparent;
             icon-width: 14px;
             icon-height: 14px;
             stroke-width: 1.6px;
@@ -65,7 +66,7 @@ component SidebarTab inherits Rectangle {
 
         Text {
             text: root.title;
-            color: root.active ? #FFFFFF : #A0A0AA;
+            color: root.active ? Theme.text : Theme.text-secondary;
             font-size: 13px;
             vertical-alignment: center;
             overflow: elide;
@@ -78,11 +79,11 @@ component SidebarTab inherits Rectangle {
         width: 18px;
         height: 18px;
         border-radius: 3px;
-        background: touch-close.has-hover ? #2E2E33 : transparent;
+        background: touch-close.has-hover ? Theme.surface-border : transparent;
 
         ProIcon {
             icon: @image-url("icons/solar/cancel.svg");
-            icon-color: #A0A0AA;
+            icon-color: Theme.text-secondary;
             icon-width: 10px;
             icon-height: 10px;
             stroke-width: 1.5px;
@@ -111,13 +112,13 @@ export component Sidebar inherits Rectangle {
     callback toggle_downloader();
 
     width: 230px;
-    background: #0B0B0C;
-    
+    background: Theme.sidebar-bg;
+
     Rectangle {
         x: parent.width - 1px;
         width: 1px;
         height: parent.height;
-        background: #1E1E20;
+        background: Theme.sidebar-divider;
     }
 
     VerticalLayout {
@@ -134,13 +135,13 @@ export component Sidebar inherits Rectangle {
                     width: 24px;
                     height: 24px;
                     border-radius: 12px;
-                    background: #1E1E20;
+                    background: Theme.surface-active;
                     border-width: 1px;
-                    border-color: #2D2D30;
-                    
+                    border-color: Theme.surface-border;
+
                     ProIcon {
                         icon: @image-url("icons/solar/person.svg");
-                        icon-color: #D4D4D8;
+                        icon-color: Theme.text-secondary;
                         icon-width: 14px;
                         icon-height: 14px;
                         stroke-width: 1.6px;
@@ -148,7 +149,7 @@ export component Sidebar inherits Rectangle {
                 }
                 Text {
                     text: "Personal";
-                    color: #E4E4E7;
+                    color: Theme.text;
                     font-size: 13px;
                     font-weight: 500;
                     vertical-alignment: center;
@@ -168,7 +169,7 @@ export component Sidebar inherits Rectangle {
 
         Text {
             text: "WORKSPACES";
-            color: #52525B;
+            color: Theme.text-faint;
             font-size: 10px;
             font-weight: 700;
         }
@@ -191,10 +192,10 @@ export component Sidebar inherits Rectangle {
 
         if root.show-downloader-panel : Rectangle {
             height: 140px;
-            background: #141416;
+            background: Theme.surface;
             border-radius: 6px;
             border-width: 1px;
-            border-color: #242427;
+            border-color: Theme.surface-border-2;
             
             VerticalLayout {
                 padding: 10px;
@@ -204,13 +205,13 @@ export component Sidebar inherits Rectangle {
                     alignment: space-between;
                     Text {
                         text: "Downloads";
-                        color: #E4E4E7;
+                        color: Theme.text;
                         font-size: 11px;
                         font-weight: 600;
                     }
                     Text {
                         text: "Hide";
-                        color: #71717A;
+                        color: Theme.text-muted;
                         font-size: 11px;
                         touch-hide := TouchArea {
                             clicked => { root.toggle_downloader(); }
@@ -222,19 +223,19 @@ export component Sidebar inherits Rectangle {
                     spacing: 4px;
                     Text {
                         text: dl.name;
-                        color: #A0A0AA;
+                        color: Theme.text-secondary;
                         font-size: 11px;
                         overflow: elide;
                     }
                     HorizontalLayout {
                         spacing: 8px;
                         Rectangle {
-                            background: #242427;
+                            background: Theme.surface-border-2;
                             height: 4px;
                             border-radius: 2px;
                             width: 130px;
                             Rectangle {
-                                background: #FFFFFF;
+                                background: Theme.text;
                                 width: parent.width * dl.progress;
                                 height: 4px;
                                 border-radius: 2px;
@@ -243,7 +244,7 @@ export component Sidebar inherits Rectangle {
                         }
                         Text {
                             text: "72%";
-                            color: #FFFFFF;
+                            color: Theme.text;
                             font-size: 10px;
                         }
                     }
@@ -253,10 +254,10 @@ export component Sidebar inherits Rectangle {
 
         Rectangle {
             height: 40px;
-            background: #141416;
+            background: Theme.surface;
             border-radius: 6px;
             border-width: 1px;
-            border-color: #242427;
+            border-color: Theme.surface-border-2;
 
             HorizontalLayout {
                 padding-left: 12px;
@@ -267,7 +268,7 @@ export component Sidebar inherits Rectangle {
                     spacing: 8px;
                     ProIcon {
                         icon: @image-url("icons/solar/shield.svg");
-                        icon-color: root.shields-active ? #FFFFFF : #71717A;
+                        icon-color: root.shields-active ? Theme.text : Theme.text-muted;
                         icon-width: 14px;
                         icon-height: 14px;
                         stroke-width: 1.6px;
@@ -275,7 +276,7 @@ export component Sidebar inherits Rectangle {
                     }
                     Text {
                         text: "Shielded Block";
-                        color: #71717A;
+                        color: Theme.text-muted;
                         font-size: 11px;
                         vertical-alignment: center;
                     }
@@ -283,7 +284,7 @@ export component Sidebar inherits Rectangle {
 
                 Text {
                     text: root.blocked-count + "";
-                    color: root.shields-active ? #FFFFFF : #71717A;
+                    color: root.shields-active ? Theme.text : Theme.text-muted;
                     font-size: 12px;
                     font-weight: 700;
                     vertical-alignment: center;

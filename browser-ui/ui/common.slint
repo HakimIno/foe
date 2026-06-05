@@ -1,6 +1,8 @@
+import { Theme } from "theme.slint";
+
 export component ProIcon inherits Rectangle {
     in property <image> icon;
-    in property <color> icon-color: #71717A;
+    in property <color> icon-color: Theme.text-muted;
     in property <length> icon-width: 15px;
     in property <length> icon-height: 15px;
     in property <length> stroke-width: 1.6px;
@@ -21,8 +23,8 @@ export component ProIcon inherits Rectangle {
 
 export component MinimalIconButton inherits Rectangle {
     in property <image> icon;
-    in property <color> active-color: #18181B;
-    in property <color> inactive-color: #71717A;
+    in property <color> active-color: Theme.text;
+    in property <color> inactive-color: Theme.text-muted;
     in property <bool> active: false;
     in property <length> icon-width: 14px;
     in property <length> icon-height: 14px;
@@ -32,13 +34,13 @@ export component MinimalIconButton inherits Rectangle {
     width: 28px;
     height: 28px;
     border-radius: 14px;
-    background: touch-area.has-hover ? #E4E4E7A0 : transparent;
+    background: touch-area.has-hover ? Theme.control-hover : transparent;
 
     animate background { duration: 100ms; }
 
     ProIcon {
         icon: root.icon;
-        icon-color: root.active ? root.active-color : (touch-area.has-hover ? #18181B : root.inactive-color);
+        icon-color: root.active ? root.active-color : (touch-area.has-hover ? Theme.text : root.inactive-color);
         icon-width: root.icon-width;
         icon-height: root.icon-height;
         stroke-width: root.stroke-width;
@@ -56,15 +58,15 @@ export component MinimalButton inherits Rectangle {
 
     height: 28px;
     border-radius: 14px;
-    background: root.active ? #FFFFFF : (touch-area.has-hover ? #E4E4E7A0 : transparent);
+    background: root.active ? Theme.surface-active : (touch-area.has-hover ? Theme.control-hover : transparent);
     border-width: 1px;
-    border-color: root.active ? #D4D4D8 : (touch-area.has-hover ? #E4E4E7 : transparent);
+    border-color: root.active ? Theme.surface-border : (touch-area.has-hover ? Theme.surface-border : transparent);
 
     animate background { duration: 100ms; }
 
     Text {
         text: root.text;
-        color: root.active ? #18181B : #71717A;
+        color: root.active ? Theme.text : Theme.text-muted;
         font-size: 12px;
         horizontal-alignment: center;
         vertical-alignment: center;
@@ -82,11 +84,11 @@ export component ChromeNavButton inherits Rectangle {
     width: 28px;
     height: 28px;
     border-radius: 14px;
-    background: touch-area.has-hover ? #FFFFFF22 : transparent;
+    background: touch-area.has-hover ? Theme.add-tab-hover : transparent;
 
     ProIcon {
         icon: root.icon;
-        icon-color: touch-area.has-hover ? #FFFFFF : #FFFFFFC4;
+        icon-color: touch-area.has-hover ? Theme.glass-icon-strong : Theme.glass-icon;
         icon-width: 15px;  /* Enlarged from 11px for crisp visibility */
         icon-height: 15px; /* Enlarged from 11px for crisp visibility */
         stroke-width: 1.6px;
@@ -102,10 +104,10 @@ export component ChromeNavButton inherits Rectangle {
 // brighten ตัวเอง, วางอยู่ภายใน GlassCapsule ได้พอดี (default transparent fill)
 export component GlassButton inherits Rectangle {
     in property <image> icon;
-    in property <color> icon-color: #FFFFFFC4;
-    in property <color> icon-hover-color: #FFFFFF;
-    in property <color> hover-bg: #FFFFFF1F;
-    in property <color> pressed-bg: #FFFFFF2E;
+    in property <color> icon-color: Theme.glass-icon;
+    in property <color> icon-hover-color: Theme.glass-icon-strong;
+    in property <color> hover-bg: Theme.glass-hover-bg;
+    in property <color> pressed-bg: Theme.glass-pressed-bg;
     in property <length> icon-size: 15px;
     callback activated();
 

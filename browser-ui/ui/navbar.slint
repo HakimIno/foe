@@ -1,4 +1,5 @@
 import { ProIcon, GlassButton } from "common.slint";
+import { Theme } from "theme.slint";
 
 export component Navbar inherits Rectangle {
     in-out property <string> current-url;
@@ -14,8 +15,8 @@ export component Navbar inherits Rectangle {
     callback toggle_layout();
 
     height: 40px;
-    // iOS 27 Liquid Glass — พื้นดำสนิท ปุ่มลอยอิสระ ไม่มีกล่องครอบ
-    background: @linear-gradient(180deg, #0E0E11 0%, #060607 100%);
+    // iOS 27 Liquid Glass — themeable: dark = พื้นดำสนิท, light = กระจกสว่าง
+    background: Theme.chrome;
 
     HorizontalLayout {
         padding-left: root.has-titlebar-spacing ? 80px : 10px;
@@ -34,9 +35,9 @@ export component Navbar inherits Rectangle {
                     height: 30px;
                     icon-size: 16px;
                     icon: @image-url("icons/solar/arc.svg");
-                    icon-color: #FFFFFFA6;
-                    hover-bg: #FFFFFF16;
-                    pressed-bg: #FFFFFF26;
+                    icon-color: Theme.glass-icon;
+                    hover-bg: Theme.glass-hover-bg;
+                    pressed-bg: Theme.glass-pressed-bg;
                     activated => { }
                 }
                 GlassButton {
@@ -44,9 +45,9 @@ export component Navbar inherits Rectangle {
                     height: 30px;
                     icon-size: 16px;
                     icon: @image-url("icons/solar/arrow-left.svg");
-                    icon-color: #FFFFFFA6;
-                    hover-bg: #FFFFFF16;
-                    pressed-bg: #FFFFFF26;
+                    icon-color: Theme.glass-icon;
+                    hover-bg: Theme.glass-hover-bg;
+                    pressed-bg: Theme.glass-pressed-bg;
                     activated => { root.back_clicked(); }
                 }
                 GlassButton {
@@ -54,9 +55,9 @@ export component Navbar inherits Rectangle {
                     height: 30px;
                     icon-size: 16px;
                     icon: @image-url("icons/solar/arrow-right.svg");
-                    icon-color: #FFFFFFA6;
-                    hover-bg: #FFFFFF16;
-                    pressed-bg: #FFFFFF26;
+                    icon-color: Theme.glass-icon;
+                    hover-bg: Theme.glass-hover-bg;
+                    pressed-bg: Theme.glass-pressed-bg;
                     activated => { root.forward_clicked(); }
                 }
                 GlassButton {
@@ -64,9 +65,9 @@ export component Navbar inherits Rectangle {
                     height: 30px;
                     icon-size: 16px;
                     icon: @image-url("icons/solar/refresh.svg");
-                    icon-color: #FFFFFFA6;
-                    hover-bg: #FFFFFF16;
-                    pressed-bg: #FFFFFF26;
+                    icon-color: Theme.glass-icon;
+                    hover-bg: Theme.glass-hover-bg;
+                    pressed-bg: Theme.glass-pressed-bg;
                     activated => { root.reload_clicked(); }
                 }
             }
@@ -79,7 +80,7 @@ export component Navbar inherits Rectangle {
             Rectangle {
                 height: 34px;
                 border-radius: self.height / 2; // full pill
-                background: text-input.has-focus ? #FFFFFF1F : #FFFFFF12;
+                background: text-input.has-focus ? Theme.url-bg-focus : Theme.url-bg;
 
                 animate background { duration: 160ms; easing: ease-out; }
 
@@ -95,15 +96,15 @@ export component Navbar inherits Rectangle {
                         y: (parent.height - self.height) / 2;
                         ProIcon {
                             icon: @image-url("icons/solar/google.svg");
-                            icon-color: #FFFFFF;
-                            fill-color: #FFFFFF;
+                            icon-color: Theme.glass-icon-strong;
+                            fill-color: Theme.glass-icon-strong;
                             icon-width: 15px;
                             icon-height: 15px;
                             stroke-width: 1.0px;
                         }
                         Text {
                             text: "▾";
-                            color: #FFFFFF7A;
+                            color: Theme.url-chip-dim;
                             font-size: 9px;
                             vertical-alignment: center;
                         }
@@ -113,13 +114,13 @@ export component Navbar inherits Rectangle {
                     Rectangle {
                         width: 1px;
                         height: 16px;
-                        background: #FFFFFF1F;
+                        background: Theme.url-divider;
                         y: (parent.height - self.height) / 2;
                     }
 
                     ProIcon {
                         icon: @image-url("icons/solar/lock.svg");
-                        icon-color: #30D158; // secure-green tint (iOS)
+                        icon-color: Theme.secure-green; // secure-green tint (iOS)
                         icon-width: 13px;
                         icon-height: 13px;
                         stroke-width: 1.6px;
@@ -128,7 +129,7 @@ export component Navbar inherits Rectangle {
 
                     text-input := TextInput {
                         text: root.current-url == "about:newtab" ? "" : root.current-url;
-                        color: #FFFFFF;
+                        color: Theme.url-text;
                         font-size: 12.5px;
                         font-weight: 500;
                         vertical-alignment: center;
@@ -140,7 +141,7 @@ export component Navbar inherits Rectangle {
 
                     if (text-input.text == "" || root.current-url == "about:newtab") && !text-input.has-focus : Text {
                         text: "ค้นหาด้วย Google หรือป้อนที่อยู่...";
-                        color: #FFFFFF6E;
+                        color: Theme.url-placeholder;
                         font-size: 12px;
                         vertical-alignment: center;
                     }
@@ -151,10 +152,10 @@ export component Navbar inherits Rectangle {
                         height: 28px;
                         icon-size: 15px;
                         icon: @image-url("icons/solar/shield.svg");
-                        icon-color: root.shields-active ? #FF453A : #FFFFFF82;
-                        icon-hover-color: root.shields-active ? #FF453A : #FFFFFF;
-                        hover-bg: #FFFFFF16;
-                        pressed-bg: #FFFFFF24;
+                        icon-color: root.shields-active ? Theme.shields-red : Theme.glass-icon;
+                        icon-hover-color: root.shields-active ? Theme.shields-red : Theme.glass-icon-strong;
+                        hover-bg: Theme.glass-hover-bg;
+                        pressed-bg: Theme.glass-pressed-bg;
                         y: (parent.height - self.height) / 2;
                         activated => { root.toggle_shields(); }
                     }
@@ -174,9 +175,9 @@ export component Navbar inherits Rectangle {
                     height: 30px;
                     icon-size: 16px;
                     icon: @image-url("icons/solar/download.svg");
-                    icon-color: #FFFFFFA6;
-                    hover-bg: #FFFFFF16;
-                    pressed-bg: #FFFFFF26;
+                    icon-color: Theme.glass-icon;
+                    hover-bg: Theme.glass-hover-bg;
+                    pressed-bg: Theme.glass-pressed-bg;
                     activated => { root.toggle_downloads(); }
                 }
                 GlassButton {
@@ -184,9 +185,9 @@ export component Navbar inherits Rectangle {
                     height: 30px;
                     icon-size: 16px;
                     icon: @image-url("icons/solar/document.svg");
-                    icon-color: #FFFFFFA6;
-                    hover-bg: #FFFFFF16;
-                    pressed-bg: #FFFFFF26;
+                    icon-color: Theme.glass-icon;
+                    hover-bg: Theme.glass-hover-bg;
+                    pressed-bg: Theme.glass-pressed-bg;
                     activated => { }
                 }
                 GlassButton {
@@ -194,9 +195,9 @@ export component Navbar inherits Rectangle {
                     height: 30px;
                     icon-size: 16px;
                     icon: @image-url("icons/solar/person.svg");
-                    icon-color: #FFFFFFA6;
-                    hover-bg: #FFFFFF16;
-                    pressed-bg: #FFFFFF26;
+                    icon-color: Theme.glass-icon;
+                    hover-bg: Theme.glass-hover-bg;
+                    pressed-bg: Theme.glass-pressed-bg;
                     activated => { }
                 }
                 GlassButton {
@@ -204,9 +205,9 @@ export component Navbar inherits Rectangle {
                     height: 30px;
                     icon-size: 16px;
                     icon: @image-url("icons/solar/menu.svg");
-                    icon-color: #FFFFFFA6;
-                    hover-bg: #FFFFFF16;
-                    pressed-bg: #FFFFFF26;
+                    icon-color: Theme.glass-icon;
+                    hover-bg: Theme.glass-hover-bg;
+                    pressed-bg: Theme.glass-pressed-bg;
                     activated => { root.toggle_layout(); }
                 }
             }

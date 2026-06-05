@@ -1,5 +1,6 @@
 import { ProIcon, MinimalIconButton, ChromeNavButton } from "common.slint";
 import { TabInfo } from "sidebar.slint";
+import { Theme } from "theme.slint";
 
 export struct TabDragState {
     from: int,
@@ -35,7 +36,7 @@ component TabGhost inherits Rectangle {
         width: parent.width - 10px;
         height: parent.height - 4px;
         border-radius: 9px;
-        background: #FFFFFF2B;
+        background: Theme.tab-ghost-bg;
 
         drop-shadow-color: #00000077;
         drop-shadow-blur: 10px;
@@ -55,8 +56,8 @@ component TabGhost inherits Rectangle {
                 root.site-type == "google" ? @image-url("icons/solar/google.svg") :
                 @image-url("icons/solar/globe.svg")
             );
-            icon-color: root.has-favicon ? #FFFFFF : #FFFFFF;
-            fill-color: (!root.has-favicon && root.site-type == "google") ? #FFFFFF : transparent;
+            icon-color: root.has-favicon ? #FFFFFF : Theme.tab-icon;
+            fill-color: (!root.has-favicon && root.site-type == "google") ? Theme.tab-icon : transparent;
             icon-width: 13px;
             icon-height: 13px;
             stroke-width: 1.6px;
@@ -65,7 +66,7 @@ component TabGhost inherits Rectangle {
 
         if root.slot-width > 70px : Text {
             text: root.title;
-            color: #FFFFFF;
+            color: Theme.tab-text-active;
             font-size: 11px;
             font-weight: root.active ? 600 : 500;
             vertical-alignment: center;
@@ -124,8 +125,8 @@ component TabItem inherits Rectangle {
             border-radius: 9px;
             // active = แผ่นนุ่มลอยตัว ไม่มีขอบคม, hover = จางกว่า, idle = โปร่งใส
             background:
-                root.active ? #FFFFFF1E :
-                touch-area.has-hover ? #FFFFFF12 : transparent;
+                root.active ? Theme.tab-active-bg :
+                touch-area.has-hover ? Theme.tab-hover-bg : transparent;
             animate background { duration: 120ms; easing: ease-out; }
         }
 
@@ -143,8 +144,8 @@ component TabItem inherits Rectangle {
                     root.site-type == "google" ? @image-url("icons/solar/google.svg") :
                     @image-url("icons/solar/globe.svg")
                 );
-                icon-color: root.has-favicon ? #FFFFFF : (root.active ? #FFFFFF : (touch-area.has-hover ? #FFFFFFEC : #FFFFFFB3));
-                fill-color: (!root.has-favicon && root.site-type == "google" && root.active) ? #FFFFFF : ((!root.has-favicon && root.site-type == "google") ? #FFFFFFB3 : transparent);
+                icon-color: root.has-favicon ? #FFFFFF : (root.active ? Theme.tab-text-active : (touch-area.has-hover ? Theme.tab-text-hover : Theme.tab-text-idle));
+                fill-color: (!root.has-favicon && root.site-type == "google" && root.active) ? Theme.tab-text-active : ((!root.has-favicon && root.site-type == "google") ? Theme.tab-text-idle : transparent);
                 icon-width: 13px;
                 icon-height: 13px;
                 stroke-width: 1.6px;
@@ -153,7 +154,7 @@ component TabItem inherits Rectangle {
 
             if root.slot-width > 70px : Text {
                 text: root.title;
-                color: root.active ? #FFFFFF : (touch-area.has-hover ? #FFFFFFEC : #FFFFFFB3);
+                color: root.active ? Theme.tab-text-active : (touch-area.has-hover ? Theme.tab-text-hover : Theme.tab-text-idle);
                 font-size: 11px;
                 font-weight: root.active ? 600 : 500;
                 vertical-alignment: center;
@@ -169,12 +170,12 @@ component TabItem inherits Rectangle {
                 width: 15px;
                 height: 15px;
                 border-radius: 7px;
-                background: root.mouse-on-close ? #FFFFFF2E : transparent;
+                background: root.mouse-on-close ? Theme.tab-close-hover : transparent;
                 y: (parent.height - self.height) / 2;
 
                 ProIcon {
                     icon: @image-url("icons/solar/cancel.svg");
-                    icon-color: root.active ? #FFFFFF : (root.mouse-on-close ? #FFFFFF : #FFFFFFB3);
+                    icon-color: root.active ? Theme.tab-text-active : (root.mouse-on-close ? Theme.tab-text-active : Theme.tab-text-idle);
                     icon-width: 14px;
                     icon-height: 14px;
                     y: (parent.height - self.height) / 2;
@@ -232,11 +233,11 @@ component AddTabButton inherits Rectangle {
     width: 26px;
     height: 26px;
     border-radius: 13px;
-    background: touch-area.has-hover ? #FFFFFF22 : transparent;
+    background: touch-area.has-hover ? Theme.add-tab-hover : transparent;
 
     ProIcon {
         icon: @image-url("icons/solar/plus.svg");
-        icon-color: touch-area.has-hover ? #FFFFFF : #FFFFFFC4;
+        icon-color: touch-area.has-hover ? Theme.glass-icon-strong : Theme.glass-icon;
         icon-width: 12px;
         icon-height: 12px;
         stroke-width: 1.6px;

@@ -1,11 +1,12 @@
 import { ProIcon } from "common.slint";
+import { Theme } from "theme.slint";
 
 export component CommandBar inherits Rectangle {
     in-out property <string> command-text;
     callback submit(string);
     callback dismiss();
 
-    background: #000000A0;
+    background: Theme.overlay;
 
     TouchArea {
         clicked => { root.dismiss(); }
@@ -14,10 +15,10 @@ export component CommandBar inherits Rectangle {
     Rectangle {
         width: 480px;
         height: 52px;
-        background: #141416;
+        background: Theme.popover-bg;
         border-radius: 6px;
         border-width: 1px;
-        border-color: #2D2D30;
+        border-color: Theme.popover-border;
         y: 120px;
         
         HorizontalLayout {
@@ -27,7 +28,7 @@ export component CommandBar inherits Rectangle {
 
             ProIcon {
                 icon: @image-url("icons/solar/search.svg");
-                icon-color: #71717A;
+                icon-color: Theme.text-muted;
                 icon-width: 16px;
                 icon-height: 16px;
                 stroke-width: 1.6px;
@@ -36,7 +37,7 @@ export component CommandBar inherits Rectangle {
 
             TextInput {
                 text: root.command-text;
-                color: #FFFFFF;
+                color: Theme.text;
                 font-size: 14px;
                 vertical-alignment: center;
                 accepted => {

@@ -1,4 +1,5 @@
 import { ProIcon } from "common.slint";
+import { Theme } from "theme.slint";
 
 component FeatureHint inherits HorizontalLayout {
     in property <image> icon;
@@ -9,7 +10,7 @@ component FeatureHint inherits HorizontalLayout {
 
     ProIcon {
         icon: root.icon;
-        icon-color: #52525B;
+        icon-color: Theme.text-faint;
         icon-width: 11px;
         icon-height: 11px;
         stroke-width: 1.4px;
@@ -19,7 +20,7 @@ component FeatureHint inherits HorizontalLayout {
 
     Text {
         text: root.label;
-        color: #52525B;
+        color: Theme.text-faint;
         font-size: 11px;
         font-weight: 500;
         vertical-alignment: center;
@@ -29,7 +30,7 @@ component FeatureHint inherits HorizontalLayout {
 component HintDivider inherits Rectangle {
     width: 1px;
     height: 10px;
-    background: #3A3B3E;
+    background: Theme.search-box-border;
 }
 
 export component Webview inherits Rectangle {
@@ -39,7 +40,7 @@ export component Webview inherits Rectangle {
 
     callback search_submitted(string);
 
-    background: (current-url == "about:newtab" || current-url == "about:blank" || current-url == "") ? #1E1F22 : #FFFFFF;
+    background: (current-url == "about:newtab" || current-url == "about:blank" || current-url == "") ? Theme.webview-blank-bg : #FFFFFF;
 
     if current-url != "about:newtab" && current-url != "about:blank" && current-url != "" : Image {
         source: frame;
@@ -58,7 +59,7 @@ export component Webview inherits Rectangle {
 
             Text {
                 text: "foe";
-                color: #FAFAFA;
+                color: Theme.hero-text;
                 font-size: 44px;
                 font-weight: 700;
                 letter-spacing: -1.5px;
@@ -67,7 +68,7 @@ export component Webview inherits Rectangle {
 
             Text {
                 text: "สืบค้น";
-                color: #71717A;
+                color: Theme.text-muted;
                 font-size: 11px;
                 font-weight: 500;
                 letter-spacing: 10px;
@@ -82,10 +83,10 @@ export component Webview inherits Rectangle {
             Rectangle {
                 width: 540px;
                 height: 44px;
-                background: search-input.has-focus ? #323338 : #2C2D30;
+                background: search-input.has-focus ? Theme.search-box-bg-focus : Theme.search-box-bg;
                 border-radius: 11px;
                 border-width: 1px;
-                border-color: search-input.has-focus ? #52525B : #3A3B3E;
+                border-color: search-input.has-focus ? Theme.search-box-border-focus : Theme.search-box-border;
 
                 animate background { duration: 150ms; }
                 animate border-color { duration: 150ms; }
@@ -97,7 +98,7 @@ export component Webview inherits Rectangle {
 
                     ProIcon {
                         icon: @image-url("icons/solar/search.svg");
-                        icon-color: search-input.has-focus ? #A1A1AA : #71717A;
+                        icon-color: search-input.has-focus ? Theme.text-secondary : Theme.text-muted;
                         icon-width: 15px;
                         icon-height: 15px;
                         stroke-width: 1.6px;
@@ -106,7 +107,7 @@ export component Webview inherits Rectangle {
 
                     search-input := TextInput {
                         text: "";
-                        color: #FAFAFA;
+                        color: Theme.text;
                         font-size: 14px;
                         font-weight: 400;
                         vertical-alignment: center;
@@ -118,7 +119,7 @@ export component Webview inherits Rectangle {
 
                     if search-input.text == "" && !search-input.has-focus : Text {
                         text: "ค้นหาหรือป้อนที่อยู่เว็บ";
-                        color: #52525B;
+                        color: Theme.text-faint;
                         font-size: 14px;
                         vertical-alignment: center;
                     }
@@ -146,7 +147,7 @@ export component Webview inherits Rectangle {
 
             Text {
                 text: "ไม่ติดตาม";
-                color: #52525B;
+                color: Theme.text-faint;
                 font-size: 11px;
                 font-weight: 500;
                 vertical-alignment: center;
