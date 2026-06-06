@@ -1,0 +1,5 @@
+[alias]
+# รันbrowser (release) — พิมพ์แค่ `cargo r`
+r = "run -p browser-ui --release"
+# รันแบบ debug (คอมไพล์เร็วกว่า แต่รันช้ากว่า) — `cargo rd`
+rd = "run -p browser-ui"

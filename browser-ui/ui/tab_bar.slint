@@ -12,8 +12,6 @@ export struct TabDragState {
 export global TabDrag {
    
     in-out property <TabDragState> state: { from: -1, to: -1, delta-x: 0px, active: false };
-    // Locks out tab-drag processing once vertical window-drag has been initiated
-    in-out property <bool> window-drag-mode: false;
 }
 
 component TabGhost inherits Rectangle {
@@ -323,13 +321,20 @@ export component TabBar inherits Rectangle {
         }
     }
 
-    // Main window drag area for the entire transparent bar
+    // พื้นที่ลากหน้าต่าง (ชั้นล่างสุด) ครอบทั้งแถบแต่อยู่ใต้แท็บ
+    // เริ่มลากหน้าต่างเมื่อ "ขยับ" จริงเท่านั้น (ไม่ใช่ตอนกดลง) เพื่อไม่ให้
+    // drag_window() ของ macOS ยึดเมาส์ไปแย่งการ reorder แท็บ — แท็บอยู่ชั้นบน
+    // และจับ event เองเมื่อกดโดน เลยจะไม่มาถึง TouchArea นี้
     TouchArea {
         width: parent.width;
         height: parent.height;
-        pointer-event(event) => {
-            if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
-                root.start_drag_window();
+        moved => {
+            if (self.pressed) {
+                let dx = self.mouse-x - self.pressed-x;
+                let dy = self.mouse-y - self.pressed-y;
+                if (Math.abs(dx) > 6px || Math.abs(dy) > 6px) {
+                    root.start_drag_window();
+                }
             }
         }
         double-clicked => { root.double_click_titlebar(); }
@@ -347,26 +352,9 @@ export component TabBar inherits Rectangle {
             width: Math.max(root.tabs.length * root.calculated-tab-width + 36px, tab-flickable.width);
             height: parent.height;
 
-            TouchArea {
-                width: parent.width;
-                height: parent.height;
-                pointer-event(event) => {
-                    if (event.kind == PointerEventKind.down) {
-                        TabDrag.window-drag-mode = false;
-                    }
-                }
-                moved => {
-                    if (self.pressed && !TabDrag.window-drag-mode && !TabDrag.state.active) {
-                        let dx = self.mouse-x - self.pressed-x;
-                        let dy = self.mouse-y - self.pressed-y;
-                        if (Math.abs(dx) > 15px || Math.abs(dy) > 15px) {
-                            TabDrag.window-drag-mode = true;
-                            root.start_drag_window();
-                        }
-                    }
-                }
-                double-clicked => { root.double_click_titlebar(); }
-            }
+            // หมายเหตุ: ไม่มี TouchArea ลากหน้าต่างซ้อนในนี้แล้ว — พื้นที่ว่าง
+            // (หลังแท็บ) จะตกไปยัง TouchArea ลากหน้าต่างชั้นล่างสุดของ TabBar เอง
+            // ส่วนบนแท็บให้ TabItem จัดการ reorder โดยไม่โดนแย่ง
 
             for tab[idx] in root.tabs: TabItem {
                 x: idx * root.calculated-tab-width + root.tab-visual-offset(idx, TabDrag.state.from, TabDrag.state.to, TabDrag.state.delta-x, root.calculated-tab-width);

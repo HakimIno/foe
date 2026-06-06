@@ -135,7 +135,7 @@ export component GlassButton inherits Rectangle {
 
     width: 28px;
     height: 28px;
-    border-radius: self.height / 2;
+    border-radius: 8px;
     background: touch.pressed
         ? root.pressed-bg
         : (touch.has-hover ? root.hover-bg : transparent);

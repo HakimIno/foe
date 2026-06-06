@@ -4,6 +4,8 @@ use slint::{ComponentHandle, Model, ModelRc, VecModel};
 use std::path::PathBuf;
 use wry::{WebContext, WebView, WebViewBuilder, Rect};
 
+const DESKTOP_USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15";
+
 /// JS ฝังตอนต้นเอกสาร — อ่าน <link rel=icon> ของหน้าจริง (เลือกตัวที่ใหญ่สุด)
 /// แล้วส่ง host + URL ของ favicon กลับ Rust ผ่าน window.ipc.postMessage
 /// รูปแบบข้อความ: "favicon\n<host>\n<absolute-favicon-url>"
@@ -50,7 +52,7 @@ fn fetch_and_set_favicon(tab_id: i32, url: String, weak: slint::Weak<AppWindow>,
 
         // UA เบราว์เซอร์ — บาง server ตอบต่าง/บล็อกถ้าไม่มี
         let client = match reqwest::blocking::Client::builder()
-            .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) foe/0.1")
+            .user_agent(DESKTOP_USER_AGENT)
             .timeout(std::time::Duration::from_secs(10))
             .build()
         {
@@ -256,9 +258,9 @@ impl WryEngine {
 
         match self.tab_layout.as_str() {
             "top" => {
-                // TabBar (40) + Navbar (40) + WavyEdge (12)
-                y = 92.0;
-                h = logical_h - 92.0;
+                // TabBar (40) + Navbar (40) + toolbar bottom padding (4)
+                y = 84.0;
+                h = logical_h - 84.0;
             }
             "bottom" => {
                 y = 40.0; // Navbar only
@@ -341,6 +343,7 @@ impl WryEngine {
             let builder = WebViewBuilder::new_as_child(winit_window)
                 .with_url(url)
                 .with_bounds(bounds)
+                .with_user_agent(DESKTOP_USER_AGENT)
                 // swipe trackpad ย้อน/ไปหน้า แบบ native (wry 0.44 ไม่มี back()/
                 // forward() ให้เรียกตรงๆ — ปุ่มยังต้องใช้ JS history ใน go_back).
                 .with_back_forward_navigation_gestures(true)

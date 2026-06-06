@@ -120,12 +120,12 @@ export component AppWindow inherits Window {
                     }
 
                     // โซน toolbar สีขาว — ครอบ Navbar + ระยะหายใจด้านล่าง
-                    // 40 (TabBar) + 40 (Navbar) + 12 = 92 ตรงกับ compute_bounds "top"=92
+                    // 40 (TabBar) + 40 (Navbar) + 4 = 84 ตรงกับ compute_bounds "top"=84
                     Rectangle {
                         background: Theme.toolbar;
 
                         VerticalLayout {
-                            padding-bottom: 12px;
+                            padding-bottom: 4px;
 
                             Navbar {
                                 background: transparent; // ให้พื้น toolbar ขาวแสดงทะลุ

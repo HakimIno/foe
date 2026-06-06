@@ -4,3 +4,5 @@ members = [
     "browser-core",
     "browser-ui",
 ]
+# ทำให้ `cargo run`/`cargo build` เลือก browser-ui เป็น default (ไม่ต้องใส่ -p)
+default-members = ["browser-ui"]
